@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.users',
     'apps.info',
+    'apps.sakay',
 ]
 
 MIDDLEWARE = [
@@ -79,7 +80,7 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bsitcrud',
+        'NAME': 'sakayguidedb',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': 'localhost',
