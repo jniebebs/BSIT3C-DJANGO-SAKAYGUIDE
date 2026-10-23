@@ -1,0 +1,126 @@
+{% extends "theme/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-xl">
+  <!-- Page header -->
+  <div class="page-header d-print-none mb-4" aria-label="Page header">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col">
+          <div class="page-pretitle">SakayGuide</div>
+          <h1 class="page-title mb-2">Saved Routes</h1>
+          <p class="text-muted mb-0">
+            Your frequently used routes. Tap a route to open it in the route
+            planner, or remove routes you no longer need.
+          </p>
+        </div>
+        <div class="col-auto">
+          <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Route Search
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if saved_routes %}
+  <div class="table-responsive">
+    <table class="table table-vcenter table-striped">
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>Origin</th>
+          <th>Destination</th>
+          <th>Saved</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for saved in saved_routes %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center">
+              <span class="saved-route-icon bg-primary-lt text-primary rounded-circle d-inline-flex align-items-center justify-content-center me-3" style="width: 36px; height: 36px;">
+                <i class="fa-solid fa-route"></i>
+              </span>
+              <div>
+                <div class="fw-semibold">{{ saved.name|default:"Untitled Route" }}</div>
+                <div class="small text-muted">{{ saved.origin_terminal.name }} &rarr; {{ saved.destination_terminal.name }}</div>
+              </div>
+            </div>
+          </td>
+          <td>{{ saved.origin_terminal.name }}</td>
+          <td>{{ saved.destination_terminal.name }}</td>
+          <td>{{ saved.created_at|date:"M j, Y" }}</td>
+          <td class="text-end">
+            <a
+              href="{% url 'dashboard' %}?origin={{ saved.origin_terminal.id }}&destination={{ saved.destination_terminal.id }}"
+              class="btn btn-sm btn-primary"
+              title="Open in route planner"
+            >
+              <i class="fa-solid fa-route me-1"></i> Plan
+            </a>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger remove-saved-route"
+              data-id="{{ saved.id }}"
+              title="Remove saved route"
+            >
+              <i class="fa-solid fa-trash me-1"></i> Remove
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5">
+    <div class="saved-empty-icon rounded-circle bg-primary-lt text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+      <i class="fa-solid fa-bookmark fa-2x"></i>
+    </div>
+    <h3 class="h5">No saved routes yet</h3>
+    <p class="text-muted">
+      Save routes from the route search page to access them quickly here.
+    </p>
+    <a href="{% url 'dashboard' %}" class="btn btn-primary mt-3">
+      <i class="fa-solid fa-route me-1"></i> Find a Route
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{% block extra_js %}
+<script src="{% static 'js/sakay.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.remove-saved-route').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = this.getAttribute('data-id');
+        if (!confirm('Remove this saved route?')) return;
+        fetch(`/sakay/unsave-route/${id}/`, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRFToken': document.cookie.match(/(?:^|; )csrftoken=([^;]*)/)?.[1] || '',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+          .then(function (response) {
+            if (response.ok) {
+              this.closest('tr').remove();
+              if (document.querySelectorAll('tbody tr').length === 0) {
+                location.reload();
+              }
+            } else {
+              alert('Failed to remove saved route.');
+            }
+          }.bind(this))
+          .catch(function () {
+            alert('Failed to remove saved route.');
+          });
+      });
+    });
+  });
+</script>
+{% endblock %}

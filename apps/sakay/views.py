@@ -4,11 +4,12 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.csrf import get_token
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from .models import Advisory, Route, Terminal
+from .models import Advisory, Route, SavedRoute, SearchHistory, Terminal
 from .routing import OPTIMIZE_CHOICES, plan_journey
 from .serializers import (
     advisory_json,
@@ -34,11 +35,18 @@ def terminal_search(request):
     """Fuzzy (ILIKE style) search over terminal names, cities and landmarks.
 
     GET /api/terminals/search?q=pitx&limit=10
+
+    Results are restricted to terminals within Kabankalan City, Negros
+    Occidental to match the project's geographic scope.
     """
     query = request.GET.get('q', '').strip()
     limit = _parse_limit(request.GET.get('limit'))
 
-    terminals = Terminal.objects.prefetch_related('transport_modes').order_by('name')
+    terminals = (
+        Terminal.objects.prefetch_related('transport_modes')
+        .filter(municipality='Kabankalan City', province='Negros Occidental')
+        .order_by('name')
+    )
 
     if query:
         # Every whitespace separated token must match at least one field,
@@ -103,9 +111,16 @@ def terminal_routes(request, pk):
 
 @require_GET
 def route_list(request):
-    """List active routes, optionally filtered by mode slug or terminal id."""
-    routes = Route.objects.filter(is_active=True).select_related(
-        'transport_mode', 'origin_terminal', 'destination_terminal'
+    """List active routes, optionally filtered by mode slug or terminal id.
+
+    Routes are restricted to those whose origin and destination terminals are
+    both within Kabankalan City, Negros Occidental.
+    """
+    routes = (
+        Route.objects.filter(is_active=True)
+        .filter(origin_terminal__municipality='Kabankalan City', origin_terminal__province='Negros Occidental')
+        .filter(destination_terminal__municipality='Kabankalan City', destination_terminal__province='Negros Occidental')
+        .select_related('transport_mode', 'origin_terminal', 'destination_terminal')
     )
 
     mode_slug = request.GET.get('mode')
@@ -180,6 +195,17 @@ def route_plan(request):
     destination = Terminal.objects.filter(pk=destination_id).first()
     if origin is None or destination is None:
         return JsonResponse({'error': 'Terminal not found.'}, status=404)
+
+    if origin.municipality != 'Kabankalan City' or origin.province != 'Negros Occidental':
+        return JsonResponse(
+            {'error': f'Origin terminal "{origin.name}" is outside the Kabankalan City service area.'},
+            status=400,
+        )
+    if destination.municipality != 'Kabankalan City' or destination.province != 'Negros Occidental':
+        return JsonResponse(
+            {'error': f'Destination terminal "{destination.name}" is outside the Kabankalan City service area.'},
+            status=400,
+        )
 
     optimize = request.GET.get('optimize', 'fastest')
     if optimize not in OPTIMIZE_CHOICES:
@@ -326,3 +352,119 @@ def advisory_resolve(request, pk):
 def csrf_token_view(request):
     """Ensure a CSRF cookie is issued so the React app can POST safely."""
     return JsonResponse({'csrfToken': get_token(request)})
+
+
+# ----------------------------------------------------------------------
+# Saved routes (commuter-facing)
+# ----------------------------------------------------------------------
+@login_required(login_url='login')
+def saved_routes_page(request):
+    """Render the commuter's saved routes page."""
+    saved = (
+        SavedRoute.objects.filter(user=request.user)
+        .select_related('origin_terminal', 'destination_terminal')
+        .order_by('-created_at')
+    )
+    return render(request, 'sakay/saved_routes.html', {'saved_routes': saved})
+
+
+@require_POST
+@login_required(login_url='login')
+def save_route_ajax(request):
+    """Save a route for the authenticated user.
+
+    Expects JSON body: { origin_terminal_id, destination_terminal_id, name? }
+    """
+    data = _read_json_body(request)
+    if data is None:
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    origin_id = data.get('origin_terminal_id')
+    destination_id = data.get('destination_terminal_id')
+    name = str(data.get('name', '')).strip()
+
+    if not origin_id or not destination_id:
+        return JsonResponse(
+            {'error': 'origin_terminal_id and destination_terminal_id are required.'},
+            status=400,
+        )
+
+    try:
+        origin_id = int(origin_id)
+        destination_id = int(destination_id)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Terminal ids must be integers.'}, status=400)
+
+    origin = get_object_or_404(Terminal, pk=origin_id)
+    destination = get_object_or_404(Terminal, pk=destination_id)
+
+    if origin_id == destination_id:
+        return JsonResponse(
+            {'error': 'Origin and destination cannot be the same terminal.'},
+            status=400,
+        )
+
+    saved, created = SavedRoute.objects.update_or_create(
+        user=request.user,
+        origin_terminal=origin,
+        destination_terminal=destination,
+        defaults={'name': name or ''},
+    )
+
+    return JsonResponse({
+        'status': 'created' if created else 'updated',
+        'saved_route': {
+            'id': saved.id,
+            'name': saved.name or f'{origin.name} → {destination.name}',
+            'origin': {'id': origin.id, 'name': origin.name},
+            'destination': {'id': destination.id, 'name': destination.name},
+            'created_at': saved.created_at.isoformat(),
+        },
+    }, status=201 if created else 200)
+
+
+@require_http_methods(['DELETE'])
+@login_required(login_url='login')
+def unsave_route_ajax(request, pk):
+    """Remove a saved route. Only the owner may delete it."""
+    saved = get_object_or_404(SavedRoute, pk=pk, user=request.user)
+    saved.delete()
+    return JsonResponse({'status': 'removed', 'id': pk})
+
+
+@require_POST
+@login_required(login_url='login')
+def record_search_ajax(request):
+    """Record a route search in the commuter's history.
+
+    Expects JSON body: { origin_terminal_id, destination_terminal_id }
+    """
+    data = _read_json_body(request)
+    if data is None:
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    origin_id = data.get('origin_terminal_id')
+    destination_id = data.get('destination_terminal_id')
+
+    if not origin_id or not destination_id:
+        return JsonResponse(
+            {'error': 'origin_terminal_id and destination_terminal_id are required.'},
+            status=400,
+        )
+
+    try:
+        origin_id = int(origin_id)
+        destination_id = int(destination_id)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Terminal ids must be integers.'}, status=400)
+
+    origin = get_object_or_404(Terminal, pk=origin_id)
+    destination = get_object_or_404(Terminal, pk=destination_id)
+
+    SearchHistory.objects.create(
+        user=request.user,
+        origin_terminal=origin,
+        destination_terminal=destination,
+    )
+
+    return JsonResponse({'status': 'recorded'}, status=201)

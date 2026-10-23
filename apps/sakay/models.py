@@ -1,6 +1,7 @@
 """SakayGuide transit domain models: terminals, routes, fares and advisories."""
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -110,7 +111,7 @@ class Terminal(models.Model):
 
 
 class Route(models.Model):
-    """A single transport line, e.g. the PITX -> Baclaran jeepney route."""
+    """A single transport line, e.g. the Kabankalan City to Barangay Camansi jeepney route."""
 
     OPTIMIZE_CHOICES = (('fastest', 'Fastest'), ('cheapest', 'Cheapest'))
 
@@ -342,3 +343,84 @@ class Advisory(models.Model):
         if self.expires_at and self.expires_at <= timezone.now():
             return False
         return True
+
+
+class SavedRoute(models.Model):
+    """A commuter's saved (frequently used) route.
+
+    Tied to the authenticated user. Anonymous commuters are not supported for
+    saved routes because there is no stable identifier to attach them to.
+    Duplicate (user, origin, destination) combinations are prevented.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='saved_routes',
+        on_delete=models.CASCADE,
+    )
+    origin_terminal = models.ForeignKey(
+        Terminal,
+        related_name='saved_routes_from',
+        on_delete=models.CASCADE,
+    )
+    destination_terminal = models.ForeignKey(
+        Terminal,
+        related_name='saved_routes_to',
+        on_delete=models.CASCADE,
+    )
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Optional commuter-chosen name for this saved route.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sakay_saved_route'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'origin_terminal', 'destination_terminal'],
+                name='unique_user_saved_route',
+            ),
+        ]
+
+    def __str__(self):
+        label = self.name or f'{self.origin_terminal} → {self.destination_terminal}'
+        return f'{self.user.username}: {label}'
+
+
+class SearchHistory(models.Model):
+    """A commuter's route search history.
+
+    The user is nullable so anonymous searches can be recorded when a session
+    key is available. Older entries are pruned by administrators.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='search_history',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    origin_terminal = models.ForeignKey(
+        Terminal,
+        related_name='search_history_from',
+        on_delete=models.CASCADE,
+    )
+    destination_terminal = models.ForeignKey(
+        Terminal,
+        related_name='search_history_to',
+        on_delete=models.CASCADE,
+    )
+    searched_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sakay_search_history'
+        ordering = ['-searched_at']
+
+    def __str__(self):
+        user_label = self.user.username if self.user_id else 'anonymous'
+        return f'{user_label}: {self.origin_terminal} → {self.destination_terminal}'

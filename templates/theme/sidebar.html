@@ -35,9 +35,18 @@
         <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa fa-dashboard"></i>
+              <i class="fa fa-route"></i>
             </span>
-            <span class="nav-link-title">Dashboard</span>
+            <span class="nav-link-title">Route Search</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'saved_routes' %}active{% endif %}" href="{% url 'saved_routes' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="nav-icon fas fa-bookmark"></i>
+            </span>
+            <span class="nav-link-title">Saved Routes</span>
           </a>
         </li>
 

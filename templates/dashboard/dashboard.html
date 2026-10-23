@@ -1,0 +1,196 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Dashboard - SakayGuide Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+{% if not db_available %}
+<div class="alert alert-warning d-flex align-items-start gap-2 dashboard-db-alert" role="alert">
+  <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+  <div>
+    <h4 class="alert-heading">Database unavailable</h4>
+    <p class="mb-0">
+      The configured SakayGuide database (<code>sakayguidedb</code>) could not be
+      reached, so live counts are not available. The dashboard structure is shown
+      below with placeholder states. No data has been invented.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Overview</div>
+      <h2 class="page-title">Dashboard</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-primary">
+          <i class="fa-solid fa-rotate me-1"></i>Refresh
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="row row-deck row-cards mb-3">
+  {% for card in summary %}
+  <div class="col-sm-6 col-xl">
+    <div class="card dashboard-stat-card dashboard-stat-{{ card.accent }}">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="dashboard-stat-icon">
+            <i class="{{ card.icon }}"></i>
+          </div>
+          <div class="ms-auto text-end">
+            <div class="dashboard-stat-value">
+              {% if card.value is not None %}
+                {{ card.value }}
+              {% else %}
+                <span class="dashboard-stat-unavailable">Unavailable</span>
+              {% endif %}
+            </div>
+            <div class="dashboard-stat-label">{{ card.label }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Routes chart + recent activity -->
+<div class="row row-cards mb-3">
+  <div class="col-lg-8">
+    <div class="card h-100" id="routes">
+      <div class="card-header">
+        <h3 class="card-title">Routes by Transport Mode</h3>
+      </div>
+      <div class="card-body">
+        {% if mode_breakdown %}
+          <div id="dashboard-mode-chart" style="height: 320px;"></div>
+          <div
+            id="dashboard-mode-data"
+            class="d-none"
+            data-labels="{{ mode_breakdown.labels|join:',' }}"
+            data-values="{% for value in mode_breakdown.values %}{{ value }}{% if not forloop.last %},{% endif %}{% endfor %}"
+          ></div>
+        {% else %}
+          {% include 'dashboard/partials/empty.html' with icon="fa-chart-pie" title="No transport mode data" subtitle="The route and transport type tables are unavailable." %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card h-100" id="activity">
+      <div class="card-header">
+        <h3 class="card-title">Recent Activity</h3>
+      </div>
+      <div class="card-body">
+        {% if activity %}
+          <ul class="list-unstyled dashboard-activity-list mb-0">
+            {% for item in activity %}
+            <li class="dashboard-activity-item">
+              <span class="dashboard-activity-dot bg-{{ item.severity|default:'info' }}"></span>
+              <div class="flex-grow-1 min-w-0">
+                <div class="dashboard-activity-title">{{ item.title }}</div>
+                <div class="dashboard-activity-meta">
+                  {{ item.detail }} &middot; {{ item.created_at|date:"M j, Y H:i" }}
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% include 'dashboard/partials/empty.html' with icon="fa-bell" title="No recent activity" subtitle="Advisory or feedback tables are unavailable." %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Transport types / vehicles / barangays -->
+<div class="row row-cards">
+  <div class="col-lg-4">
+    <div class="card h-100" id="transport-types">
+      <div class="card-header">
+        <h3 class="card-title">Transport Types</h3>
+      </div>
+      <div class="card-body">
+        {% if mode_breakdown %}
+          <ul class="list-unstyled dashboard-mode-list mb-0">
+            {% for row in mode_breakdown.rows %}
+            <li class="dashboard-mode-item">
+              <span class="dashboard-mode-name">{{ row.name }}</span>
+              <span class="badge bg-primary-lt text-primary">{{ row.total }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% include 'dashboard/partials/empty.html' with icon="fa-bus" title="No transport types" subtitle="The transport type table is unavailable." %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card h-100" id="vehicles">
+      <div class="card-header">
+        <h3 class="card-title">Vehicles</h3>
+      </div>
+      <div class="card-body">
+        {% if summary_map.vehicles.value is not None %}
+          <div class="d-flex align-items-center gap-3">
+            <span class="avatar avatar-lg bg-warning-lt text-warning">
+              <i class="fa-solid fa-truck"></i>
+            </span>
+            <div>
+              <div class="dashboard-stat-value">{{ summary_map.vehicles.value }}</div>
+              <div class="dashboard-stat-label">Registered vehicles</div>
+            </div>
+          </div>
+        {% else %}
+          {% include 'dashboard/partials/empty.html' with icon="fa-truck" title="No vehicle data" subtitle="The vehicles table is unavailable." %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card h-100" id="barangays">
+      <div class="card-header">
+        <h3 class="card-title">Barangay Overview</h3>
+      </div>
+      <div class="card-body">
+        {% if barangay_overview %}
+          <div class="table-responsive">
+            <table class="table table-vcenter table-sm">
+              <thead>
+                <tr>
+                  {% for column in barangay_overview.columns %}
+                  <th>{{ column|title }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in barangay_overview.rows %}
+                <tr>
+                  {% for value in row %}
+                  <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          {% include 'dashboard/partials/empty.html' with icon="fa-map-location-dot" title="No barangay data" subtitle="The barangays table is unavailable." %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

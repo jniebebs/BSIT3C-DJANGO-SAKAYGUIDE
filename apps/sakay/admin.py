@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Advisory, Route, RouteStop, Terminal, TransportMode
+from .models import (
+    Advisory,
+    Route,
+    RouteStop,
+    SavedRoute,
+    SearchHistory,
+    Terminal,
+    TransportMode,
+)
 
 
 @admin.register(TransportMode)
@@ -43,3 +51,20 @@ class AdvisoryAdmin(admin.ModelAdmin):
     list_filter = ('status', 'severity', 'category')
     search_fields = ('title', 'message', 'reported_by')
     filter_horizontal = ('routes',)
+
+
+@admin.register(SavedRoute)
+class SavedRouteAdmin(admin.ModelAdmin):
+    list_display = ('user', 'origin_terminal', 'destination_terminal', 'name', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__username', 'origin_terminal__name', 'destination_terminal__name', 'name')
+    raw_id_fields = ('user', 'origin_terminal', 'destination_terminal')
+
+
+@admin.register(SearchHistory)
+class SearchHistoryAdmin(admin.ModelAdmin):
+    list_display = ('user', 'origin_terminal', 'destination_terminal', 'searched_at')
+    list_filter = ('searched_at',)
+    search_fields = ('user__username', 'origin_terminal__name', 'destination_terminal__name')
+    raw_id_fields = ('user', 'origin_terminal', 'destination_terminal')
+    date_hierarchy = 'searched_at'

@@ -1,0 +1,107 @@
+<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar dashboard-sidebar">
+  <div class="container-fluid">
+    <div class="navbar-brand navbar-brand-autodark dashboard-brand-block">
+      <a href="{% url 'dashboard:admin_dashboard' %}" class="dashboard-brand">
+        <span class="dashboard-brand-mark"><i class="fa-solid fa-bus"></i></span>
+        <span class="dashboard-brand-stack">
+          <span class="dashboard-brand-text">Sakay<span class="text-warning">Guide</span></span>
+          <span class="dashboard-brand-sub">Admin Console</span>
+        </span>
+      </a>
+    </div>
+
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#dashboard-sidebar-menu"
+      aria-controls="dashboard-sidebar-menu"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="dashboard-sidebar-menu">
+      <ul class="navbar-nav pt-lg-2 py-lg-2">
+        <li class="nav-item">
+          <span class="dashboard-nav-section">Menu</span>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a
+            class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}"
+            href="{% url 'dashboard:admin_dashboard' %}"
+          >
+            <span class="nav-link-icon"><i class="fa-solid fa-gauge-high"></i></span>
+            <span class="nav-link-title">Dashboard</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link" href="{% url 'dashboard:admin_dashboard' %}#barangays">
+            <span class="nav-link-icon"><i class="fa-solid fa-map-location-dot"></i></span>
+            <span class="nav-link-title">Barangays</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link" href="{% url 'dashboard:admin_dashboard' %}#transport-types">
+            <span class="nav-link-icon"><i class="fa-solid fa-bus"></i></span>
+            <span class="nav-link-title">Transport Types</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link" href="{% url 'dashboard:admin_dashboard' %}#vehicles">
+            <span class="nav-link-icon"><i class="fa-solid fa-truck"></i></span>
+            <span class="nav-link-title">Vehicles</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link" href="{% url 'dashboard:admin_dashboard' %}#routes">
+            <span class="nav-link-icon"><i class="fa-solid fa-route"></i></span>
+            <span class="nav-link-title">Routes</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a
+            class="nav-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}"
+            href="{% url 'users:user_list' %}"
+          >
+            <span class="nav-link-icon"><i class="fa-solid fa-users"></i></span>
+            <span class="nav-link-title">Users</span>
+          </a>
+        </li>
+
+        {% if user.is_authenticated %}
+        <li class="nav-item d-lg-none">
+          <a class="nav-link" href="{% url 'logout' %}">
+            <span class="nav-link-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
+            <span class="nav-link-title">Logout</span>
+          </a>
+        </li>
+        {% endif %}
+
+        <li class="nav-item mt-auto dashboard-nav-footer">
+          <div class="dashboard-user-card">
+            <a href="{% url 'dashboard:admin_dashboard' %}" class="dashboard-user-card-link">
+              <span class="dashboard-avatar">{{ user.username|first|upper }}</span>
+              <span class="dashboard-user-card-text">
+                <span class="dashboard-user-name">{{ user.username }}</span>
+                <span class="dashboard-user-role">
+                  {% if user.is_superuser %}Administrator{% else %}Staff{% endif %}
+                </span>
+              </span>
+            </a>
+            <a href="{% url 'logout' %}" class="dashboard-user-logout" title="Logout">
+              <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</aside>

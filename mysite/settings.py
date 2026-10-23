@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.info',
     'apps.sakay',
+    'apps.dashboard',
 ]
 
 MIDDLEWARE = [
@@ -105,6 +106,15 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+AUTHENTICATION_BACKENDS = [
+    'apps.users.backends.LegacyAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+MIGRATION_MODULES = {
+    'users': None,
+}
 
 
 # Internationalization
