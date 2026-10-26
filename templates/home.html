@@ -2,25 +2,308 @@
 {% block content %}
 <div class="container-xl">
   <div class="page-header d-print-none" aria-label="Page header">
-    <div class="container-xl">
-      <div class="row align-items-center">
-        <div class="col">
-          <div class="page-pretitle">Overview</div>
-          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
-            <h2 class="page-title mb-0">Dashboard</h2>
-          </div>
-          <h2 class="page-title mb-0 d-md-none">Dashboard</h2>
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Overview</div>
+        <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
+          <h2 class="page-title mb-0">Dashboard</h2>
+          {% if stats.municipality %}
+          <span class="badge text-bg-blue">
+            <i class="ti ti-map-pin me-1"></i>{{ stats.municipality.0 }}, {{ stats.municipality.1 }}
+          </span>
+          {% endif %}
         </div>
+        <h2 class="page-title mb-0 d-md-none">Dashboard</h2>
       </div>
     </div>
   </div>
   <br>
 
-  <div class="card">
-    <div class="card-body text-muted">
-      Dashboard
+  {% if db_error %}
+  <div class="alert alert-danger" role="alert">
+    <div class="d-flex">
+      <div><i class="ti ti-alert-circle me-2"></i>{{ db_error }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if stats %}
+  <div class="alert alert-info" role="alert">
+    <i class="ti ti-info-circle me-1"></i>
+    All routes, fares, travel times and transfers shown here are
+    <strong>provisional test data</strong> for Kabankalan City — not official
+    transport information.
+  </div>
+
+  {# ---------- STAT CARDS ---------- #}
+  <div class="row row-deck g-3 mb-3">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="subheader">Active Routes</div>
+            <span class="badge text-bg-primary"><i class="ti ti-route"></i></span>
+          </div>
+          <div class="h1 mb-0">{{ stats.active_routes }}</div>
+          <div class="text-muted small">{{ stats.route_stops }} ordered stops</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="subheader">Active Locations</div>
+            <span class="badge text-bg-green"><i class="ti ti-map-pin"></i></span>
+          </div>
+          <div class="h1 mb-0">{{ stats.active_locations }}</div>
+          <div class="text-muted small">{{ stats.inactive_locations }} inactive · {{ stats.barangays }} barangays</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="subheader">Transfer Links</div>
+            <span class="badge text-bg-yellow"><i class="ti ti-arrows-exchange"></i></span>
+          </div>
+          <div class="h1 mb-0">{{ stats.transfers }}</div>
+          <div class="text-muted small">{{ stats.transport_types }} transport types</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="subheader">Commuters</div>
+            <span class="badge text-bg-purple"><i class="ti ti-users"></i></span>
+          </div>
+          <div class="h1 mb-0">{{ stats.commuters }}</div>
+          <div class="text-muted small">{{ stats.saved_routes }} saved routes</div>
+        </div>
+      </div>
     </div>
   </div>
 
+  <div class="row row-deck g-3 mb-3">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-baseline">
+            <span class="text-muted">Active fare records</span>
+            <span class="h2 mb-0">{{ stats.active_fares }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-baseline">
+            <span class="text-muted">Route landmarks</span>
+            <span class="h2 mb-0">{{ stats.landmarks }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-baseline">
+            <span class="text-muted">Search history</span>
+            <span class="h2 mb-0">{{ stats.searches }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-baseline">
+            <span class="text-muted">Transport types</span>
+            <span class="h2 mb-0">{{ stats.transport_types }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ---------- ROUTES ---------- #}
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title mb-0">Active Routes</h3>
+        <div class="card-subtitle text-muted">Ordered stops and lowest active regular fare per route</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Route</th>
+            <th>Mode</th>
+            <th>Origin</th>
+            <th>Destination</th>
+            <th class="text-end">Stops</th>
+            <th class="text-end">Est. time</th>
+            <th class="text-end">From fare</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in stats.routes %}
+          <tr>
+            <td><span class="badge text-bg-blue">{{ r.code }}</span></td>
+            <td>{{ r.name }}</td>
+            <td><span class="badge text-bg-secondary">{{ r.transport }}</span></td>
+            <td>{{ r.origin }}</td>
+            <td>{{ r.destination }}</td>
+            <td class="text-end">{{ r.stops }}</td>
+            <td class="text-end">{{ r.travel_time }} min</td>
+            <td class="text-end">{% if r.min_fare %}₱{{ r.min_fare }}{% else %}—{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-muted text-center">No active routes.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row row-deck g-3 mb-3">
+    {# ---------- TRANSFERS ---------- #}
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Transfer Connections</h3>
+            <div class="card-subtitle text-muted">Provisional inter-route transfers</div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Transfer point</th>
+                <th class="text-end">Time</th>
+                <th class="text-end">Extra fare</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in stats.transfer_list %}
+              <tr>
+                <td><span class="badge text-bg-blue">{{ t.from_code }}</span></td>
+                <td><span class="badge text-bg-blue">{{ t.to_code }}</span></td>
+                <td>{{ t.location }}</td>
+                <td class="text-end">{{ t.time }} min</td>
+                <td class="text-end">{% if t.fare %}₱{{ t.fare }}{% else %}—{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-muted text-center">No transfers defined.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ---------- ADMIN ACTIVITY ---------- #}
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Recent Admin Activity</h3>
+            <div class="card-subtitle text-muted">Latest audit log entries</div>
+          </div>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for log in stats.recent_logs %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <span class="badge text-bg-{% if log.1 == 'CREATE' %}green{% elif log.1 == 'DEACTIVATE' %}red{% else %}blue{% endif %}">{{ log.1 }}</span>
+                  <strong>{{ log.0 }}</strong>
+                  <span class="text-muted small">{{ log.2 }}</span>
+                </div>
+                <div class="text-muted small mt-1">{{ log.3 }}</div>
+              </div>
+              <span class="text-muted small text-nowrap">{{ log.4|date:"M j, Y" }}</span>
+            </div>
+          </div>
+          {% empty %}
+          <div class="list-group-item text-muted text-center">No activity recorded.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-deck g-3 mb-3">
+    {# ---------- TRANSPORT BREAKDOWN ---------- #}
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Routes by Transport Mode</h3>
+            <div class="card-subtitle text-muted">Active routes per mode</div>
+          </div>
+        </div>
+        <div class="card-body">
+          {% for name, count, percent in stats.transport_breakdown %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <span>{{ name }}</span>
+              <span class="text-muted">{{ count }}</span>
+            </div>
+            <div class="progress progress-sm mt-1" style="height: 6px;">
+              <div class="progress-bar {% if forloop.counter == 1 %}bg-primary{% elif forloop.counter == 2 %}bg-green{% else %}bg-yellow{% endif %}"
+                   style="width: {{ percent }}%"></div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="text-muted">No transport types.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# ---------- LOCATIONS ---------- #}
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Active Locations</h3>
+            <div class="card-subtitle text-muted">{{ stats.active_locations }} locations across {{ stats.barangays }} barangays</div>
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height: 320px;">
+          <table class="table table-vcenter card-table table-sm">
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Type</th>
+                <th>Barangay</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for loc in stats.location_list %}
+              <tr>
+                <td>{{ loc.0 }}</td>
+                <td><span class="badge text-bg-secondary">{{ loc.1 }}</span></td>
+                <td class="text-muted">{{ loc.2 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

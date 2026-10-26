@@ -1,0 +1,136 @@
+{% extends "theme/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Plan your trip</div>
+        <h2 class="page-title mb-0">Where do you want to go?</h2>
+        <div class="text-muted mt-1">
+          Find routes, fares, and transfer instructions around Kabankalan City.
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      {% include "routes/_search_form.html" %}
+    </div>
+  </div>
+
+  {% if form.errors %}
+  <div class="alert alert-warning" role="alert">
+    <i class="ti ti-alert-triangle me-1"></i>
+    {% for field, errors in form.errors.items %}
+      {% for error in errors %}{{ error }} {% endfor %}
+    {% endfor %}
+    Please pick both locations from the suggestion list.
+  </div>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title mb-0">Popular Destinations</h3>
+        <div class="card-subtitle text-muted">Frequently searched places in Kabankalan City</div>
+      </div>
+    </div>
+    <div class="card-body d-flex flex-wrap gap-2">
+      {% for place in popular %}
+      <button type="button" class="btn btn-outline-primary btn-sm popular-chip"
+              data-location-id="{{ place.location_id }}"
+              data-location-name="{{ place.location_name }}">
+        <i class="ti ti-map-pin me-1"></i>{{ place.location_name }}
+        <span class="text-muted small">· {{ place.barangay.barangay_name }}</span>
+      </button>
+      {% empty %}
+      <span class="text-muted">No search history yet - popular destinations appear after the first searches.</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title mb-0">Kabankalan City Live Map</h3>
+        <div class="card-subtitle text-muted">The map shows Kabankalan City only</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="sg-map" id="sg-search-map"></div>
+      <div class="text-muted small mt-2">
+        <i class="ti ti-map-pin me-1"></i>Centered on Kabankalan City
+        (base map &copy; Esri).
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-deck g-3 mb-3">
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge text-bg-blue"><i class="ti ti-list-numbers"></i></span>
+            <strong>Ordered stops</strong>
+          </div>
+          <p class="text-muted mb-0 small">
+            Results follow the actual <code>route_stops</code> order, so a route
+            only appears when it really passes your origin before your
+            destination.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge text-bg-yellow"><i class="ti ti-arrows-exchange"></i></span>
+            <strong>Valid transfers only</strong>
+          </div>
+          <p class="text-muted mb-0 small">
+            Multi-ride journeys are built from recorded
+            <code>route_transfers</code> rows, including extra transfer fare
+            and waiting time when applicable.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge text-bg-green"><i class="ti ti-cash"></i></span>
+            <strong>Fare estimates</strong>
+          </div>
+          <p class="text-muted mb-0 small">
+            Fares come from the active <code>route_fares</code> records for the
+            regular fare type and are summed per ride.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info d-flex align-items-start" role="alert">
+    <i class="ti ti-info-circle me-2 mt-1"></i>
+    <div>{{ provisional_note }}</div>
+  </div>
+</div>
+
+{% include "theme/messages.html" %}
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      rel="stylesheet" crossorigin="">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{% static 'js/city-map.js' %}"></script>
+<script src="{% static 'js/route-search.js' %}"></script>
+{% endblock %}

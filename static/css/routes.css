@@ -1,0 +1,101 @@
+/* Styles for the SakayGuide route-search feature (scoped with sg- prefixes). */
+
+.sg-combobox {
+  position: relative;
+}
+
+.sg-combobox-menu {
+  position: absolute;
+  z-index: 1050;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  padding: 0.25rem;
+  background: var(--tblr-bg-surface, #fff);
+  border: 1px solid var(--tblr-border-color, rgba(0, 0, 0, 0.125));
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.sg-combobox-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: transparent;
+  border-radius: 0.375rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sg-combobox-item:hover,
+.sg-combobox-item:focus {
+  background: color-mix(in srgb, var(--tblr-primary, #206bc4) 12%, transparent);
+  outline: none;
+}
+
+.sg-combobox-name {
+  display: block;
+  font-weight: 600;
+}
+
+.sg-combobox-meta {
+  display: block;
+  color: var(--tblr-secondary, #8a94a6);
+}
+
+.sg-combobox-empty {
+  padding: 0.5rem 0.75rem;
+  color: var(--tblr-secondary, #8a94a6);
+}
+
+.sg-leg {
+  background: color-mix(in srgb, var(--tblr-secondary, #8a94a6) 6%, transparent);
+}
+
+.sg-stops li {
+  padding-left: 0.15rem;
+  margin-bottom: 0.15rem;
+}
+
+.sg-journey-steps li {
+  margin-bottom: 0.35rem;
+}
+
+.popular-chip {
+  border-radius: 999px;
+}
+
+.journey-card .card-header {
+  flex-wrap: wrap;
+}
+
+/* Route map (Leaflet clamped to Kabankalan City + offline fallback) */
+.sg-map {
+  height: 320px;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--tblr-border-color, rgba(0, 0, 0, 0.125));
+  background: color-mix(in srgb, var(--tblr-secondary, #8a94a6) 8%, transparent);
+  overflow: hidden;
+}
+
+.sg-map.leaflet-container {
+  background: color-mix(in srgb, var(--tblr-secondary, #8a94a6) 8%, transparent);
+}
+
+.sg-map-offline {
+  height: auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sg-map-fallback {
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--tblr-secondary, #64748b);
+}

@@ -1,0 +1,60 @@
+<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar">
+  <div class="container-fluid">
+    <a href="{% url 'login' %}" class="navbar-brand navbar-brand-autodark dh-brand d-flex align-items-center gap-2 text-decoration-none">
+      <span class="dh-brand-mark">
+        <i class="fa-solid fa-shield-halved"></i>
+      </span>
+      <span class="lh-1">
+        <span class="dh-brand-name">Sakay<span class="text-warning">Guide</span></span>
+        <span class="dh-brand-sub">Management System</span>
+      </span>
+    </a>
+
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#sidebar-menu"
+      aria-controls="sidebar-menu"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+      >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="sidebar-menu">
+      <ul class="navbar-nav pt-lg-2 py-lg-2">
+        <li class="nav-item">
+          <span class="dh-nav-section">Menu</span>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.app_name == 'routes' %}active{% endif %}" href="{% url 'routes:route_search' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa fa-route"></i>
+            </span>
+            <span class="nav-link-title">Find My Route</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'login' %}active{% endif %}" href="{% url 'login' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fas fa-sign-in-alt"></i>
+            </span>
+            <span class="nav-link-title">Login</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'register' %}active{% endif %}" href="{% url 'register' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fas fa-user-plus"></i>
+            </span>
+            <span class="nav-link-title">Register</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</aside>

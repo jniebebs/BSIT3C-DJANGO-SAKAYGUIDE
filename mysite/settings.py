@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.users',
     'apps.info',
+
+    'routes',
 ]
 
 MIDDLEWARE = [
@@ -75,17 +77,43 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+#
+# Credentials come from environment variables so they are never hard-coded;
+# the defaults keep local XAMPP development working out of the box.
+
+import os  # noqa: E402
+
+_DB_USER = os.environ.get('DB_USER', 'root')
+_DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
+_DB_HOST = os.environ.get('DB_HOST', 'localhost')
+_DB_PORT = os.environ.get('DB_PORT', '3306')
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bsitcrud',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
-    }
+        'NAME': os.environ.get('DJANGO_DB_NAME', 'bsitcrud'),
+        'USER': _DB_USER,
+        'PASSWORD': _DB_PASSWORD,
+        'HOST': _DB_HOST,
+        'PORT': _DB_PORT,
+        'OPTIONS': {'charset': 'utf8mb4'},
+    },
+    # SakayGuide transit data (search history + saved routes are written here)
+    'sakayguide': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('SAKAYGUIDE_DB_NAME', 'sakayguide_db'),
+        'USER': _DB_USER,
+        'PASSWORD': _DB_PASSWORD,
+        'HOST': _DB_HOST,
+        'PORT': _DB_PORT,
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {'charset': 'utf8mb4'},
+    },
 }
+
+# Database routers: SakayGuide tables live on the 'sakayguide' connection;
+# Django app tables keep using the default connection.
+DATABASE_ROUTERS = ['mysite.routers.SakayGuideRouter']
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

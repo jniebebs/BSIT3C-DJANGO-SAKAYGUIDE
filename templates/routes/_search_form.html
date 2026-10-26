@@ -1,0 +1,58 @@
+{# Shared From/To search controls for the route search and results pages. #}
+{{ locations|json_script:"location-data" }}
+
+<form method="get" action="{% url 'routes:route_search' %}" id="route-search-form" class="route-search-form" novalidate>
+  <div class="row g-3 align-items-start">
+    <div class="col-12 col-md-5">
+      <label class="form-label" for="origin-text">From</label>
+      <div class="sg-combobox" data-combobox>
+        <input type="text" class="form-control" id="origin-text"
+               placeholder="Search starting location..."
+               autocomplete="off" role="combobox" aria-expanded="false"
+               aria-autocomplete="list"
+               value="{% if origin %}{{ origin.location_name }}{% endif %}">
+        <input type="hidden" name="origin" value="{{ form.origin.value|default_if_none:'' }}">
+        <div class="sg-combobox-menu" hidden></div>
+      </div>
+      {% if form.origin.errors %}
+        <div class="text-danger small mt-1">{{ form.origin.errors|first }}</div>
+      {% endif %}
+    </div>
+
+    <div class="col-12 col-md-auto d-flex justify-content-center align-items-center pt-md-4">
+      <button type="button" class="btn btn-icon btn-ghost-primary"
+              id="swap-button" title="Swap locations"
+              aria-label="Swap starting point and destination">
+        <i class="ti ti-arrows-left-right"></i>
+      </button>
+    </div>
+
+    <div class="col-12 col-md-5">
+      <label class="form-label" for="destination-text">To</label>
+      <div class="sg-combobox" data-combobox>
+        <input type="text" class="form-control" id="destination-text"
+               placeholder="Search destination..."
+               autocomplete="off" role="combobox" aria-expanded="false"
+               aria-autocomplete="list"
+               value="{% if destination %}{{ destination.location_name }}{% endif %}">
+        <input type="hidden" name="destination" value="{{ form.destination.value|default_if_none:'' }}">
+        <div class="sg-combobox-menu" hidden></div>
+      </div>
+      {% if form.destination.errors %}
+        <div class="text-danger small mt-1">{{ form.destination.errors|first }}</div>
+      {% endif %}
+    </div>
+
+    <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+      <button type="submit" class="btn btn-primary px-4">
+        <i class="ti ti-search me-1"></i>Find My Route
+      </button>
+      <button type="button" class="btn btn-outline-secondary" id="clear-button">
+        <i class="ti ti-eraser me-1"></i>Clear Search
+      </button>
+      {% if form.non_field_errors %}
+        <span class="text-danger small">{{ form.non_field_errors|first }}</span>
+      {% endif %}
+    </div>
+  </div>
+</form>

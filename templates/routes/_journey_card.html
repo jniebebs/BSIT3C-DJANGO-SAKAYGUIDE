@@ -1,0 +1,168 @@
+<div class="card mb-3 journey-card">
+  <div class="card-header">
+    <div class="min-w-0">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        {% for leg in journey.legs %}
+          {% if not forloop.first %}
+            <i class="ti ti-arrows-right text-muted"></i>
+          {% endif %}
+          <span class="badge text-bg-blue">{{ leg.route.route_code }}</span>
+        {% endfor %}
+        <span class="badge text-bg-{% if journey.transfer_count %}yellow{% else %}green{% endif %}">
+          {% if journey.transfer_count %}
+            {{ journey.transfer_count }} transfer{{ journey.transfer_count|pluralize }}
+          {% else %}
+            Direct route
+          {% endif %}
+        </span>
+        <span class="badge text-bg-secondary">
+          {{ journey.legs.0.route.transport_type.transport_name }}
+        </span>
+        <span class="badge text-bg-light border text-muted">
+          <i class="ti ti-flask me-1"></i>Provisional estimate
+        </span>
+      </div>
+      <h3 class="card-title mb-0">
+        {{ journey.origin.location_name }}
+        <i class="ti ti-arrow-right mx-1 text-muted"></i>
+        {{ journey.destination.location_name }}
+      </h3>
+    </div>
+    <div class="text-end">
+      <div class="h2 mb-0">&#8369;{{ journey.total_fare }}</div>
+      <div class="text-muted small">estimated total fare</div>
+    </div>
+  </div>
+
+  <div class="card-body">
+    {# ---- Summary strip: fare + travel time with breakdowns ---- #}
+    <div class="row g-2 mb-3 text-center">
+      <div class="col-4">
+        <div class="text-muted small">Estimated total fare</div>
+        <div class="fw-bold h4 mb-0">&#8369;{{ journey.total_fare }}</div>
+        <div class="text-muted small">
+          rides &#8369;{{ journey.ride_fare }}{% if journey.transfer_fare %} + transfer &#8369;{{ journey.transfer_fare }}{% endif %}
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="text-muted small">Estimated travel time</div>
+        <div class="fw-bold h4 mb-0">{{ journey.total_time }} min</div>
+        <div class="text-muted small">
+          {{ journey.ride_time }} min riding{% if journey.transfer_time %} + {{ journey.transfer_time }} min transfer{% endif %}
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="text-muted small">Rides</div>
+        <div class="fw-bold h4 mb-0">{{ journey.legs|length }}</div>
+        <div class="text-muted small">
+          {% if journey.transfer_count %}{{ journey.transfer_count }} transfer{{ journey.transfer_count|pluralize }}{% else %}direct{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ---- Route map: Leaflet, clamped to the Kabankalan City area ---- #}
+    <div class="sg-map mb-3" data-map-index="{{ forloop.counter0 }}"></div>
+    <div class="text-muted small mt-n2 mb-3">
+      <i class="ti ti-map-pin me-1"></i>Map of Kabankalan City
+      (base map &copy; Esri).
+    </div>
+
+    {# ---- Each ride with ordered stops and landmarks ---- #}
+    {% for leg in journey.legs %}
+    <div class="border rounded p-3 mb-3 sg-leg">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="badge text-bg-blue">{{ leg.route.route_code }}</span>
+            <strong>{{ leg.route.route_name }}</strong>
+            <span class="badge text-bg-secondary">{{ leg.route.transport_type.transport_name }}</span>
+          </div>
+          <div class="text-muted small mt-1">
+            Board at <strong>{{ leg.board_at }}</strong> &rarr;
+            alight at <strong>{{ leg.alight_at }}</strong>
+          </div>
+        </div>
+        <div class="text-end">
+          <div class="fw-bold">{{ leg.minutes }} min</div>
+          <div class="text-muted small">ride fare &#8369;{{ leg.fare }}</div>
+        </div>
+      </div>
+
+      <div class="mt-2">
+        <div class="text-muted small text-uppercase fw-bold mb-1">Ordered stops</div>
+        <ol class="mb-0 sg-stops">
+          {% for stop in leg.stops %}
+          <li class="{% if stop.is_transfer %}fw-bold{% endif %}">
+            {{ stop.name }}
+            <span class="text-muted small">({{ stop.time }} min)</span>
+            {% if stop.is_transfer %}
+              <span class="badge text-bg-yellow ms-1">transfer point</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+
+      {% if leg.landmarks %}
+      <div class="mt-2">
+        <div class="text-muted small text-uppercase fw-bold mb-1">Landmarks on this ride</div>
+        {% for lm in leg.landmarks %}
+        <span class="badge text-bg-light border me-1 mb-1"
+              {% if lm.description %}title="{{ lm.description }}"{% endif %}>
+          <i class="ti ti-flag me-1"></i>{{ lm.name }}
+          <span class="text-muted">({{ lm.distance }} km)</span>
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {# ---- Transfer details ---- #}
+    {% for transfer in journey.transfers %}
+    <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-start gap-2">
+      <i class="ti ti-arrows-exchange mt-1"></i>
+      <div>
+        <strong>Transfer at {{ transfer.location_name }}</strong>
+        <span class="text-muted small">({{ transfer.from_code }} &rarr; {{ transfer.to_code }})</span>
+        <div class="small">{{ transfer.instructions }}</div>
+        <div class="small text-muted">
+          {% if transfer.fare %}Additional fare: &#8369;{{ transfer.fare }}. {% endif %}
+          {% if transfer.time %}Allow about {{ transfer.time }} minutes to transfer.{% endif %}
+          {% if not transfer.fare and not transfer.time %}No extra fare or waiting time recorded.{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    {# ---- Step-by-step instructions ---- #}
+    <div class="border rounded p-3 sg-journey-steps">
+      <div class="fw-bold mb-2"><i class="ti ti-list-numbers me-1"></i>Your Journey</div>
+      <ol class="mb-0">
+        {% for step in journey.steps %}
+        <li>{{ step }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    {# ---- Save route ---- #}
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'routes:save_route' %}" class="d-flex flex-wrap gap-2 mt-3">
+      {% csrf_token %}
+      <input type="hidden" name="origin" value="{{ origin.location_id }}">
+      <input type="hidden" name="destination" value="{{ destination.location_id }}">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="text" class="form-control form-control-sm" name="nickname"
+             maxlength="100" placeholder="Nickname (optional)"
+             style="max-width: 260px;">
+      <button type="submit" class="btn btn-outline-primary btn-sm">
+        <i class="ti ti-bookmark me-1"></i>Save Route
+      </button>
+    </form>
+    {% else %}
+    <a class="btn btn-outline-secondary btn-sm mt-3" href="{% url 'login' %}">
+      <i class="ti ti-login me-1"></i>Log in to save this route
+    </a>
+    {% endif %}
+  </div>
+</div>

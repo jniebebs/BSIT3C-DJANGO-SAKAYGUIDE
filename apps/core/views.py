@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.db import connections
+from django.db.utils import DatabaseError, OperationalError
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -138,9 +140,149 @@ def logout_view(request):
     return redirect('login')
 
 
+def _sakayguide_stats():
+    """Collect dashboard statistics from the SakayGuide transit database."""
+    stats = {}
+    with connections['sakayguide'].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM routes WHERE status = 'active'),
+                (SELECT COUNT(*) FROM route_stops),
+                (SELECT COUNT(*) FROM locations WHERE status = 'active'),
+                (SELECT COUNT(*) FROM barangays),
+                (SELECT COUNT(*) FROM route_transfers),
+                (SELECT COUNT(*) FROM route_fares WHERE status = 'active'),
+                (SELECT COUNT(*) FROM users WHERE role = 'commuter' AND status = 'active'),
+                (SELECT COUNT(*) FROM saved_routes),
+                (SELECT COUNT(*) FROM search_history),
+                (SELECT COUNT(*) FROM route_landmarks),
+                (SELECT COUNT(*) FROM locations WHERE status = 'inactive'),
+                (SELECT COUNT(*) FROM transportation_types WHERE status = 'active')
+            """
+        )
+        row = cursor.fetchone()
+        keys = (
+            'active_routes', 'route_stops', 'active_locations', 'barangays',
+            'transfers', 'active_fares', 'commuters', 'saved_routes',
+            'searches', 'landmarks', 'inactive_locations', 'transport_types',
+        )
+        stats.update(dict(zip(keys, row)))
+
+        cursor.execute(
+            """
+            SELECT municipality_name, province
+            FROM municipalities
+            WHERE status = 'active'
+            ORDER BY municipality_id
+            LIMIT 1
+            """
+        )
+        stats['municipality'] = cursor.fetchone()
+
+        cursor.execute(
+            """
+            SELECT r.route_code, r.route_name, tt.transport_name,
+                   o.location_name AS origin_name,
+                   d.location_name AS destination_name,
+                   r.estimated_travel_time,
+                   (SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.route_id) AS stop_count,
+                   (SELECT MIN(f.total_estimated_fare)
+                      FROM route_fares f
+                     WHERE f.route_id = r.route_id AND f.status = 'active') AS min_fare
+              FROM routes r
+              JOIN transportation_types tt ON tt.transport_type_id = r.transport_type_id
+              JOIN locations o ON o.location_id = r.origin_id
+              JOIN locations d ON d.location_id = r.destination_id
+             WHERE r.status = 'active'
+             ORDER BY r.route_code
+            """
+        )
+        stats['routes'] = [
+            {
+                'code': row[0], 'name': row[1], 'transport': row[2],
+                'origin': row[3], 'destination': row[4],
+                'travel_time': row[5], 'stops': row[6], 'min_fare': row[7],
+            }
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute(
+            """
+            SELECT fr.route_code, tr.route_code, l.location_name,
+                   t.estimated_transfer_time, t.additional_estimated_fare
+              FROM route_transfers t
+              JOIN routes fr ON fr.route_id = t.from_route_id
+              JOIN routes tr ON tr.route_id = t.to_route_id
+              JOIN locations l ON l.location_id = t.transfer_location_id
+             ORDER BY t.transfer_id
+            """
+        )
+        stats['transfer_list'] = [
+            {
+                'from_code': row[0], 'to_code': row[1], 'location': row[2],
+                'time': row[3], 'fare': row[4],
+            }
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute(
+            """
+            SELECT tt.transport_name, COUNT(r.route_id)
+              FROM transportation_types tt
+              LEFT JOIN routes r
+                ON r.transport_type_id = tt.transport_type_id
+               AND r.status = 'active'
+             WHERE tt.status = 'active'
+             GROUP BY tt.transport_type_id, tt.transport_name
+             ORDER BY tt.transport_type_id
+            """
+        )
+        total_routes = stats['active_routes'] or 0
+        stats['transport_breakdown'] = [
+            (name, count, round(count * 100 / total_routes) if total_routes else 0)
+            for name, count in cursor.fetchall()
+        ]
+
+        cursor.execute(
+            """
+            SELECT u.full_name, a.action_type, a.table_affected,
+                   a.action_description, a.created_at
+              FROM admin_activity_logs a
+              JOIN users u ON u.user_id = a.admin_id
+             ORDER BY a.created_at DESC, a.log_id DESC
+             LIMIT 6
+            """
+        )
+        stats['recent_logs'] = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT l.location_name, l.location_type, b.barangay_name
+              FROM locations l
+              JOIN barangays b ON b.barangay_id = l.barangay_id
+             WHERE l.status = 'active'
+             ORDER BY l.location_name
+            """
+        )
+        stats['location_list'] = cursor.fetchall()
+
+    return stats
+
+
 @login_required(login_url='login')
 def home(request):
-    return render(request, 'home.html')
+    stats = None
+    error = None
+    try:
+        stats = _sakayguide_stats()
+    except (OperationalError, DatabaseError) as exc:
+        error = (
+            'Could not connect to the SakayGuide database '
+            '(sakayguide_db). Start MySQL/XAMPP and try again. '
+            f'({exc.__class__.__name__})'
+        )
+    return render(request, 'home.html', {'stats': stats, 'db_error': error})
 
 
 @require_http_methods(['GET', 'POST'])

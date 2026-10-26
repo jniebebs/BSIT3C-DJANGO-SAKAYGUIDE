@@ -1,0 +1,111 @@
+{% extends "theme/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Plan your trip</div>
+        <h2 class="page-title mb-0">Where do you want to go?</h2>
+        <div class="text-muted mt-1">
+          Find routes, fares, and transfer instructions around Kabankalan City.
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      {% include "routes/_search_form.html" %}
+    </div>
+  </div>
+
+  {% if form.errors %}
+  <div class="alert alert-warning" role="alert">
+    <i class="ti ti-alert-triangle me-1"></i>
+    {% for field, errors in form.errors.items %}
+      {% for error in errors %}{{ error }} {% endfor %}
+    {% endfor %}
+    Please pick both locations from the suggestion list.
+  </div>
+  {% else %}
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <span class="h3 mb-0">{{ origin.location_name }}</span>
+        <i class="ti ti-arrow-right mx-2 text-muted"></i>
+        <span class="h3 mb-0">{{ destination.location_name }}</span>
+        <div class="text-muted small mt-1">
+          {{ journeys|length }} journey option{{ journeys|length|pluralize }} found
+        </div>
+      </div>
+      <div class="btn-group" role="group" aria-label="Sort results">
+        {% for key, label in sort_choices %}
+        <a class="btn btn-sm {% if sort == key %}btn-primary{% else %}btn-ghost-secondary{% endif %}"
+           href="?origin={{ origin.location_id }}&destination={{ destination.location_id }}&sort={{ key }}">
+          {{ label }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if journeys %}
+      {% for journey in journeys %}
+        {% include "routes/_journey_card.html" with journey=journey %}
+      {% endfor %}
+    {% else %}
+      <div class="card mb-3">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Kabankalan City map</h3>
+            <div class="card-subtitle text-muted">The map shows Kabankalan City only</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="sg-map" data-map-index="0"></div>
+          <div class="text-muted small mt-2">
+            <i class="ti ti-map-pin me-1"></i>Centered on Kabankalan City
+            (base map &copy; Esri).
+          </div>
+        </div>
+      </div>
+
+      <div class="alert alert-warning" role="alert">
+        <div class="d-flex">
+          <div>
+            <i class="ti ti-route-off me-1"></i>
+            <strong>No valid journey found</strong> for
+            {{ origin.location_name }} &rarr; {{ destination.location_name }}.
+            <div class="mt-1">
+              Only journeys supported by active route, stop and transfer
+              records are shown - nothing is invented. Try a different pair of
+              locations, or check whether your destination is served by any
+              recorded route.
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="alert alert-info d-flex align-items-start" role="alert">
+      <i class="ti ti-info-circle me-2 mt-1"></i>
+      <div>{{ provisional_note }}</div>
+    </div>
+  {% endif %}
+</div>
+
+{{ maps|json_script:"journey-maps" }}
+
+{% include "theme/messages.html" %}
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      rel="stylesheet" crossorigin="">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{% static 'js/route-search.js' %}"></script>
+<script src="{% static 'js/route-map.js' %}"></script>
+{% endblock %}
