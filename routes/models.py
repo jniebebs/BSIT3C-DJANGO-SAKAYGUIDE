@@ -68,6 +68,15 @@ class Location(models.Model):
     address = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=8, choices=STATUS_CHOICES, default=ACTIVE)
+    # Verified WGS 84 coordinates (added by sakayguide_locations_coordinates.sql).
+    # They stay NULL for any location whose map position has not been verified
+    # yet; the map feature treats NULL as "show in instructions only".
+    latitude = models.DecimalField(
+        max_digits=10, decimal_places=7, blank=True, null=True,
+    )
+    longitude = models.DecimalField(
+        max_digits=10, decimal_places=7, blank=True, null=True,
+    )
 
     class Meta:
         db_table = 'locations'

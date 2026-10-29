@@ -3,8 +3,8 @@
 The project keeps its Django app tables (auth, sessions, info records) on the
 'default' connection, while the 14 SakayGuide transit tables live in
 sakayguide_db. Writes to the SakayGuide database are limited to the tables
-the route-search feature needs (search_history, saved_routes, users mirror);
-migrations never touch that database.
+the application needs (search_history, saved_routes, users mirror, and the
+admin_activity_logs audit trail); migrations never touch that database.
 """
 SAKAYGUIDE_TABLES = {
     'municipalities', 'barangays', 'locations', 'transportation_types',
@@ -14,8 +14,11 @@ SAKAYGUIDE_TABLES = {
 }
 
 # Tables the application itself writes to (search history + saved routes +
-# the users mirror used to link Django accounts to SakayGuide user ids).
-SAKAYGUIDE_WRITABLE_TABLES = {'search_history', 'saved_routes', 'users'}
+# the users mirror used to link Django accounts to SakayGuide user ids +
+# the audit trail populated when accounts are created).
+SAKAYGUIDE_WRITABLE_TABLES = {
+    'search_history', 'saved_routes', 'users', 'admin_activity_logs',
+}
 
 
 class SakayGuideRouter:

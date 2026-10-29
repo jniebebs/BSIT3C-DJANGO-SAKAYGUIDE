@@ -1,10 +1,18 @@
 {# Shared From/To search controls for the route search and results pages. #}
 {{ locations|json_script:"location-data" }}
+{{ map_locations|json_script:"kabankalan-locations" }}
 
 <form method="get" action="{% url 'routes:route_search' %}" id="route-search-form" class="route-search-form" novalidate>
   <div class="row g-3 align-items-start">
     <div class="col-12 col-md-5">
-      <label class="form-label" for="origin-text">From</label>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <label class="form-label mb-0" for="origin-text">From</label>
+        <button type="button" class="btn btn-link btn-sm p-0 sg-gps-use-origin"
+                id="gps-use-origin"
+                title="Use your browser location to choose the nearest recorded starting point">
+          <i class="ti ti-current-location me-1"></i>Use my location
+        </button>
+      </div>
       <div class="sg-combobox" data-combobox>
         <input type="text" class="form-control" id="origin-text"
                placeholder="Search starting location..."
@@ -14,6 +22,8 @@
         <input type="hidden" name="origin" value="{{ form.origin.value|default_if_none:'' }}">
         <div class="sg-combobox-menu" hidden></div>
       </div>
+      <div class="form-text sg-gps-status" id="gps-origin-status"
+           role="status" aria-live="polite" hidden></div>
       {% if form.origin.errors %}
         <div class="text-danger small mt-1">{{ form.origin.errors|first }}</div>
       {% endif %}
@@ -53,6 +63,11 @@
       {% if form.non_field_errors %}
         <span class="text-danger small">{{ form.non_field_errors|first }}</span>
       {% endif %}
+      <div class="w-100 sg-search-loading" id="sg-search-loading" hidden
+           role="status" aria-live="polite">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        <span>Searching the database for available routes&hellip;</span>
+      </div>
     </div>
   </div>
 </form>

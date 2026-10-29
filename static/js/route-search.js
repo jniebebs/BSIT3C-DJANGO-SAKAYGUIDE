@@ -142,6 +142,18 @@
   var fromBox = boxes[0];
   var toBox = boxes[1];
 
+  /* Live GPS shortcut: live-gps.js finds the nearest recorded place and
+     announces it here so the existing combobox state stays authoritative. */
+  document.addEventListener('sg:gps-origin', function (event) {
+    var location = findByLocationId(
+      event.detail && event.detail.location_id
+    );
+    if (!location) {
+      return;
+    }
+    fromBox.selectLocation(location);
+  });
+
   var swapButton = document.getElementById('swap-button');
   if (swapButton) {
     swapButton.addEventListener('click', function () {
@@ -181,7 +193,56 @@
     }
   );
 
+  /* ---- While searching: loading indicator -------------------------------
+     Find My Route loads a fresh results page, so the server render always
+     hides the indicator again afterwards; restore state only when the
+     browser restores the old page from the back-forward cache. */
+  var loading = document.getElementById('sg-search-loading');
+  var submitButton = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', function () {
+    if (loading) {
+      loading.hidden = false;
+    }
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
+  });
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+      if (loading) {
+        loading.hidden = true;
+      }
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
+    }
+  });
+
+  /* ---- Changed From/To: hide the previous map until a new search --------
+     The results page renders #sg-map-card for the pair that was submitted.
+     The moment the commuter edits the origin, destination, swaps or clears
+     them, the map no longer matches their inputs, so it is hidden (and a
+     hint appears) until Find My Route is submitted again. Returning the
+     selection back to the searched pair restores the map. */
+  var mapCard = document.getElementById('sg-map-card');
+  var staleAlert = document.getElementById('sg-stale-results');
+  if (mapCard && staleAlert) {
+    var initialOrigin = String(form.querySelector('input[name="origin"]').value);
+    var initialDestination =
+      String(form.querySelector('input[name="destination"]').value);
+
+    document.addEventListener('sg:selection', function (event) {
+      var changed =
+        String(event.detail.origin) !== initialOrigin ||
+        String(event.detail.destination) !== initialDestination;
+      mapCard.hidden = changed;
+      staleAlert.hidden = !changed;
+    });
+  }
+
   /* Publish the current state once at load (e.g. a form redisplayed after
-     a validation error already has From/To filled in). */
+     a validation error already has From/To filled in). This fires the
+     sg:selection listener above with the searched pair, which is a
+     no-op - the map stays exactly as the server rendered it. */
   notifySelection();
 })();

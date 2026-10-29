@@ -12,6 +12,10 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
+from routes.services import fastest_travel_minutes
+
+from .audit import log_account_creation
+
 User = get_user_model()
 
 MAX_FAILED_ATTEMPTS = 5
@@ -178,7 +182,11 @@ def _sakayguide_stats():
             LIMIT 1
             """
         )
-        stats['municipality'] = cursor.fetchone()
+        municipality = cursor.fetchone()
+        stats['municipality'] = (
+            {'name': municipality[0], 'province': municipality[1]}
+            if municipality else None
+        )
 
         cursor.execute(
             """
@@ -240,7 +248,11 @@ def _sakayguide_stats():
         )
         total_routes = stats['active_routes'] or 0
         stats['transport_breakdown'] = [
-            (name, count, round(count * 100 / total_routes) if total_routes else 0)
+            {
+                'name': name,
+                'count': count,
+                'percent': round(count * 100 / total_routes) if total_routes else 0,
+            }
             for name, count in cursor.fetchall()
         ]
 
@@ -254,18 +266,174 @@ def _sakayguide_stats():
              LIMIT 6
             """
         )
-        stats['recent_logs'] = cursor.fetchall()
+        stats['recent_logs'] = [
+            {
+                'admin': row[0], 'action': row[1], 'table': row[2],
+                'description': row[3], 'created_at': row[4],
+            }
+            for row in cursor.fetchall()
+        ]
 
         cursor.execute(
             """
-            SELECT l.location_name, l.location_type, b.barangay_name
+            SELECT l.location_name, l.location_type, b.barangay_name,
+                   (l.latitude IS NOT NULL AND l.longitude IS NOT NULL)
               FROM locations l
               JOIN barangays b ON b.barangay_id = l.barangay_id
              WHERE l.status = 'active'
              ORDER BY l.location_name
             """
         )
-        stats['location_list'] = cursor.fetchall()
+        stats['location_list'] = [
+            {
+                'name': row[0], 'type': row[1], 'barangay': row[2],
+                'has_coords': bool(row[3]),
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # ---- Search analytics (last 7 days) ---------------------------------
+        today = timezone.localdate()
+        week_start = today - timedelta(days=6)
+        previous_week_start = week_start - timedelta(days=7)
+
+        cursor.execute(
+            """
+            SELECT DATE(search_date), COUNT(*)
+              FROM search_history
+             WHERE search_date >= %s
+             GROUP BY DATE(search_date)
+             ORDER BY DATE(search_date)
+            """,
+            [week_start],
+        )
+        daily_counts = {row[0]: row[1] for row in cursor.fetchall()}
+        activity = []
+        for offset in range(7):
+            day = week_start + timedelta(days=offset)
+            activity.append({
+                'date': day.isoformat(),
+                'label': day.strftime('%a'),
+                'full_label': day.strftime('%b %d'),
+                'count': daily_counts.get(day, 0),
+            })
+        stats['search_activity'] = activity
+        stats['search_week_total'] = sum(item['count'] for item in activity)
+        busiest_day = max(activity, key=lambda item: item['count'])
+        stats['busiest_day'] = busiest_day if busiest_day['count'] else None
+
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+              FROM search_history
+             WHERE search_date >= %s AND search_date < %s
+            """,
+            [previous_week_start, week_start],
+        )
+        stats['search_previous_week_total'] = cursor.fetchone()[0] or 0
+        if stats['search_previous_week_total'] >= 10:
+            stats['search_week_change'] = round(
+                (stats['search_week_total']
+                 - stats['search_previous_week_total'])
+                * 100 / stats['search_previous_week_total']
+            )
+        elif stats['search_week_total']:
+            # Too little history to make a meaningful percentage comparison.
+            stats['search_week_change'] = None
+        else:
+            stats['search_week_change'] = 0
+
+        cursor.execute(
+            """
+            SELECT l.location_name, COUNT(*) AS hits
+              FROM search_history sh
+              JOIN locations l ON l.location_id = sh.destination_id
+             GROUP BY l.location_id, l.location_name
+             ORDER BY hits DESC, l.location_name
+             LIMIT 5
+            """
+        )
+        destination_rows = cursor.fetchall()
+        top_hits = destination_rows[0][1] if destination_rows else 0
+        total_searches = stats['searches'] or 0
+        stats['top_destinations'] = [
+            {
+                'name': name,
+                'count': count,
+                'share': (
+                    round(count * 100 / total_searches)
+                    if total_searches else 0
+                ),
+                'bar': round(count * 100 / top_hits) if top_hits else 0,
+            }
+            for name, count in destination_rows
+        ]
+
+        cursor.execute(
+            """
+            SELECT COALESCE(u.full_name, 'Guest'),
+                   sh.origin_id, o.location_name,
+                   sh.destination_id, d.location_name,
+                   sh.search_date
+              FROM search_history sh
+              JOIN locations o ON o.location_id = sh.origin_id
+              JOIN locations d ON d.location_id = sh.destination_id
+              LEFT JOIN users u ON u.user_id = sh.user_id
+             ORDER BY sh.search_date DESC, sh.search_id DESC
+             LIMIT 5
+            """
+        )
+        minute_cache = {}
+        recent_searches = []
+        for row in cursor.fetchall():
+            pair = (row[1], row[3])
+            if pair not in minute_cache:
+                minute_cache[pair] = fastest_travel_minutes(*pair)
+            recent_searches.append({
+                'user': row[0],
+                'origin': row[2],
+                'destination': row[4],
+                'searched_at': row[5],
+                'minutes': minute_cache[pair],
+            })
+        stats['recent_searches'] = recent_searches
+
+        # ---- Network / data completeness ------------------------------------
+        cursor.execute(
+            """
+            SELECT MIN(total_estimated_fare), MAX(total_estimated_fare),
+                   AVG(total_estimated_fare)
+              FROM route_fares
+             WHERE status = 'active'
+            """
+        )
+        fare_min, fare_max, fare_average = cursor.fetchone()
+        stats['fare_min'] = fare_min
+        stats['fare_max'] = fare_max
+        stats['fare_average'] = (
+            round(fare_average, 2) if fare_average is not None else None
+        )
+
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+              FROM locations
+             WHERE status = 'active'
+               AND latitude IS NOT NULL
+               AND longitude IS NOT NULL
+            """
+        )
+        stats['active_with_coords'] = cursor.fetchone()[0] or 0
+        stats['coverage_percent'] = (
+            round(stats['active_with_coords'] * 100 / stats['active_locations'])
+            if stats['active_locations'] else 0
+        )
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM admin_activity_logs WHERE created_at >= %s",
+            [week_start],
+        )
+        stats['activity_this_week'] = cursor.fetchone()[0] or 0
 
     return stats
 
@@ -312,6 +480,15 @@ def register_view(request):
         last_name=form_data['last_name'].strip(),
         email=form_data['email'].strip(),
         password=form_data['password'],
+    )
+    log_account_creation(
+        actor=user,
+        account=user,
+        account_role='commuter',
+        description=(
+            f'Self-registered commuter account "{user.username}" '
+            f'({user.email}) was created.'
+        ),
     )
     login(request, user)
     return redirect('dashboard')

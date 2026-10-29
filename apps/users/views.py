@@ -8,6 +8,8 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
 
+from apps.core.audit import log_account_creation
+
 
 def _is_superuser(user):
     return user.is_superuser
@@ -128,6 +130,19 @@ def user_save_ajax(request):
         user.save()
     except IntegrityError:
         return JsonResponse({"error": "Could not save user due to a conflict (duplicate username/email)."}, status=400)
+
+    if not is_update:
+        role_label = 'an administrator' if user.is_staff else 'a commuter'
+        log_account_creation(
+            actor=request.user,
+            account=user,
+            account_role='admin' if user.is_staff else 'commuter',
+            description=(
+                f'Administrator "{request.user.username}" created '
+                f'{role_label} account for "{user.username}" '
+                f'({user.email or "no e-mail"}).'
+            ),
+        )
 
     messages.success(
         request,

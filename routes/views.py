@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
+from django.http import JsonResponse
 from django.shortcuts import redirect, render, reverse
 from django.utils.crypto import get_random_string
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import RouteSearchForm, SaveRouteForm
 from .models import Location, SakayUser, SavedRoute, SearchHistory
@@ -11,6 +12,7 @@ from .services import (
     find_journeys,
     location_choices,
     locations_map,
+    map_locations,
     popular_destinations,
     sort_journeys,
 )
@@ -85,6 +87,7 @@ def route_search(request):
     origin = destination = None
     sort = 'fare'
     maps = []
+    fastest_time = None
 
     if bound and form.is_valid():
         searched = True
@@ -99,9 +102,14 @@ def route_search(request):
             )
             journeys = sort_journeys(journeys, sort)
             if journeys:
+                fastest_time = min(
+                    journey['total_time'] for journey in journeys
+                )
                 maps = [journey['map'] for journey in journeys]
             else:
-                # No route: still show the Kabankalan City map.
+                # No route found: still show the Kabankalan City map with
+                # the selected locations pinned, but never draw a fake
+                # connecting path between them.
                 maps = [locations_map(origin, destination)]
             try:
                 _record_search(request.user, origin, destination)
@@ -111,6 +119,7 @@ def route_search(request):
     context = {
         'form': form,
         'locations': location_choices(),
+        'map_locations': map_locations(),
         'popular': popular_destinations(),
         'provisional_note': PROVISIONAL_NOTE,
         'searched': searched,
@@ -118,6 +127,7 @@ def route_search(request):
         'destination': destination,
         'journeys': journeys,
         'maps': maps,
+        'fastest_time': fastest_time,
         'sort': sort,
         'sort_choices': [
             ('fare', 'Lowest fare'),
@@ -128,6 +138,59 @@ def route_search(request):
 
     template = 'routes/route_results.html' if searched else 'routes/route_search.html'
     return render(request, template, context)
+
+
+@require_GET
+def journey_map_json(request):
+    """JSON endpoint for one journey's map information.
+
+    GET /plan/map-data/?origin=<id>&destination=<id>&sort=<key>&index=<n>
+
+    Returns the same verified map payload that is embedded in the results
+    page: marker coordinates for the starting point (green) and destination
+    (red), every intermediate stop (blue), transfer location (orange) and
+    landmark, ordered per ride, plus a bounds rectangle so the front end can
+    zoom the whole journey into view. Location IDs are validated server side
+    against the active ``locations`` rows; unknown or inactive IDs return
+    HTTP 400 and an out-of-range journey index returns HTTP 404. No fake
+    path is ever generated for locations without coordinates.
+    """
+    form = RouteSearchForm(request.GET)
+    if not form.is_valid():
+        return JsonResponse(
+            {
+                'error': 'Please supply valid, different origin and '
+                         'destination location IDs.',
+                'details': form.errors,
+            },
+            status=400,
+        )
+
+    origin = _resolve_location(form.cleaned_data['origin'])
+    destination = _resolve_location(form.cleaned_data['destination'])
+    if origin is None or destination is None:
+        return JsonResponse(
+            {'error': 'Unknown or inactive locations.'}, status=400,
+        )
+
+    sort = form.cleaned_data.get('sort') or 'fare'
+    journeys = sort_journeys(
+        find_journeys(origin.location_id, destination.location_id,
+                      origin=origin, destination=destination),
+        sort,
+    )
+
+    try:
+        index = int(request.GET.get('index', 0))
+    except (TypeError, ValueError):
+        index = -1
+    if index < 0 or index >= len(journeys):
+        return JsonResponse(
+            {'error': 'No journey option with that index for this pair.'},
+            status=404,
+        )
+
+    return JsonResponse(journeys[index]['map'])
 
 
 @require_POST

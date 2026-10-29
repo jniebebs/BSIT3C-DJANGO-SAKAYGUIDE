@@ -115,6 +115,10 @@ CREATE TABLE locations (
   address       VARCHAR(255) NULL,
   description   TEXT NULL,
   status        ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  latitude      DECIMAL(10,7) NULL
+                COMMENT 'Verified WGS 84 latitude from OpenStreetMap; NULL = not yet verified (sakayguide_locations_coordinates.sql)',
+  longitude     DECIMAL(10,7) NULL
+                COMMENT 'Verified WGS 84 longitude from OpenStreetMap; NULL = not yet verified (sakayguide_locations_coordinates.sql)',
   PRIMARY KEY (location_id),
   UNIQUE KEY uq_locations_barangay_name_type (barangay_id, location_name, location_type),
   KEY idx_locations_name (location_name),

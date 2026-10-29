@@ -37,6 +37,9 @@
         <span class="h3 mb-0">{{ destination.location_name }}</span>
         <div class="text-muted small mt-1">
           {{ journeys|length }} journey option{{ journeys|length|pluralize }} found
+          {% if fastest_time is not None %}
+            &middot; fastest ~{{ fastest_time }} min
+          {% endif %}
         </div>
       </div>
       <div class="btn-group" role="group" aria-label="Sort results">
@@ -49,33 +52,33 @@
       </div>
     </div>
 
+    <div class="alert alert-info d-flex align-items-start" id="sg-stale-results"
+         hidden role="alert">
+      <i class="ti ti-refresh me-2 mt-1"></i>
+      <div>
+        You changed the starting point or destination. The journeys and the
+        map below are from your previous search &mdash; click
+        <strong>Find My Route</strong> to update them for the new selection.
+      </div>
+    </div>
+
     {% if journeys %}
+      {# ---- Selectable journey option cards ---- #}
       {% for journey in journeys %}
-        {% include "routes/_journey_card.html" with journey=journey %}
+        {% include "routes/_journey_card.html" with journey=journey journey_index=forloop.counter0 %}
       {% endfor %}
     {% else %}
-      <div class="card mb-3">
-        <div class="card-header">
-          <div>
-            <h3 class="card-title mb-0">Kabankalan City map</h3>
-            <div class="card-subtitle text-muted">The map shows Kabankalan City only</div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="sg-map" data-map-index="0"></div>
-          <div class="text-muted small mt-2">
-            <i class="ti ti-map-pin me-1"></i>Centered on Kabankalan City
-            (base map &copy; Esri).
-          </div>
-        </div>
-      </div>
-
+      {% comment %}
+      No available route found: still render the map below with the selected
+      origin and destination pinned, but never draw a fake connecting path.
+      {% endcomment %}
       <div class="alert alert-warning" role="alert">
         <div class="d-flex">
           <div>
             <i class="ti ti-route-off me-1"></i>
-            <strong>No valid journey found</strong> for
-            {{ origin.location_name }} &rarr; {{ destination.location_name }}.
+            <strong>No available route found</strong> for your selected
+            locations ({{ origin.location_name }} &rarr;
+            {{ destination.location_name }}).
             <div class="mt-1">
               Only journeys supported by active route, stop and transfer
               records are shown - nothing is invented. Try a different pair of
@@ -85,6 +88,116 @@
           </div>
         </div>
       </div>
+    {% endif %}
+
+    {% if maps %}
+      {# ---- Journey map (or Kabankalan map with both endpoints pinned) + Route Information Panel ---- #}
+      <section class="card mb-3" id="sg-map-card">
+        <div class="card-header">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 w-100">
+            <div>
+              <h3 class="card-title mb-0">
+                <i class="ti ti-map-2 me-1"></i>{% if journeys %}Journey map{% else %}Kabankalan City map{% endif %}
+              </h3>
+              <div class="card-subtitle text-muted" id="sg-map-route-label">
+            {% if journeys %}Estimated travel time: ~{{ journeys.0.total_time }} min{% endif %}
+          </div>
+            </div>
+            {% if journeys %}
+            <div class="d-none d-md-block">
+              <a class="btn btn-ghost-secondary btn-sm"
+                 href="{% url 'routes:journey_map_json' %}?origin={{ origin.location_id }}&destination={{ destination.location_id }}&sort={{ sort }}&index=0">
+                <i class="ti ti-code me-1"></i>Map JSON
+              </a>
+            </div>
+            {% endif %}
+          </div>
+          <div class="sg-legend d-flex flex-wrap gap-3 mt-2 w-100">
+            <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#2e8540"></span>Starting point</span>
+            <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#d63939"></span>Destination</span>
+            <span class="sg-legend-item"><span class="sg-legend-dot" style="background:#7c3aed"></span>Barangay</span>
+            <span class="sg-legend-item"><span class="sg-legend-dot" style="background:#64748b"></span>Other place</span>
+            {% if journeys %}
+            <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#1a7fd4"></span>Intermediate stop</span>
+            <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#f0932b"></span>Transfer point</span>
+            <span class="sg-legend-item"><span class="sg-legend-dot" style="background:#8b5cf6"></span>Landmark</span>
+            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#1c7ed6"></span>Ride path (Ride 1)</span>
+            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#0ca678"></span>Ride 2</span>
+            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#e8590c"></span>Ride 3</span>
+            <span class="sg-legend-item"><span class="sg-legend-line sg-legend-dashed"></span>Approximate connection</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-8">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <button type="button" class="btn btn-outline-primary btn-sm"
+                        data-gps-toggle aria-pressed="false"
+                        title="Show your live device position on the map">
+                  <i class="ti ti-current-location me-1"></i><span data-gps-toggle-label>Live GPS</span>
+                </button>
+                <span class="small sg-gps-status" data-gps-status
+                      role="status" aria-live="polite" hidden></span>
+              </div>
+              <div class="sg-map sg-map-main" id="sg-journey-map" data-journey-map></div>
+              <div class="text-muted small mt-2" id="sg-map-notes"></div>
+            </div>
+            {% if journeys %}
+            <div class="col-12 col-lg-4">
+              <div class="fw-bold mb-2"><i class="ti ti-info-circle me-1"></i>Route information</div>
+              {% for journey in journeys %}
+                {% include "routes/_journey_panel.html" with journey=journey journey_index=forloop.counter0 %}
+              {% endfor %}
+
+              {# ---- Save route (single copy; CSRF protected) ---- #}
+              {% if user.is_authenticated %}
+              <form method="post" action="{% url 'routes:save_route' %}" class="d-flex flex-wrap gap-2 mt-3">
+                {% csrf_token %}
+                <input type="hidden" name="origin" value="{{ origin.location_id }}">
+                <input type="hidden" name="destination" value="{{ destination.location_id }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="text" class="form-control form-control-sm" name="nickname"
+                       maxlength="100" placeholder="Nickname (optional)"
+                       style="max-width: 240px;">
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                  <i class="ti ti-bookmark me-1"></i>Save Route
+                </button>
+              </form>
+              {% else %}
+              <a class="btn btn-outline-secondary btn-sm mt-3" href="{% url 'login' %}">
+                <i class="ti ti-login me-1"></i>Log in to save this route
+              </a>
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="col-12 col-lg-4">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div class="fw-bold"><i class="ti ti-map-pin me-1"></i>All Kabankalan City locations</div>
+                <span class="badge text-bg-secondary">{{ map_locations|length }}</span>
+              </div>
+              <div class="sg-location-list">
+                {% for location in map_locations %}
+                <button type="button" class="sg-location-item"
+                        data-map-location-id="{{ location.location_id }}">
+                  <span class="sg-location-name">{{ location.location_name }}</span>
+                  <span class="sg-location-meta">
+                    {{ location.location_type|capfirst }}
+                    &middot; {{ location.barangay__barangay_name }}
+                    {% if location.status != 'active' %}&middot; inactive{% endif %}
+                  </span>
+                </button>
+                {% endfor %}
+              </div>
+              <div class="text-muted small mt-2">
+                <i class="ti ti-hand-click me-1"></i>Click a location to zoom
+                the map to its pin.
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
     {% endif %}
 
     <div class="alert alert-info d-flex align-items-start" role="alert">
@@ -100,12 +213,12 @@
 {% endblock %}
 
 {% block extra_css %}
-<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      rel="stylesheet" crossorigin="">
+<link href="{% static 'libs/leaflet/leaflet.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="{% static 'js/route-search.js' %}"></script>
-<script src="{% static 'js/route-map.js' %}"></script>
+<script src="{% static 'libs/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/live-gps.js' %}?v=1"></script>
+<script src="{% static 'js/route-search.js' %}?v=4"></script>
+<script src="{% static 'js/route-map.js' %}?v=12"></script>
 {% endblock %}

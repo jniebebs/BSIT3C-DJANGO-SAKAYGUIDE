@@ -226,6 +226,7 @@ Stores terminals, landmarks, establishments, hospitals, schools, markets, govern
 - **Foreign key:** `barangay_id` → `barangays`.
 - **Unique:** `(barangay_id, location_name, location_type)`.
 - **Indexes:** name, type/status, and barangay.
+- **Map coordinates (added by `sakayguide_locations_coordinates.sql`, October 2026):** `latitude DECIMAL(10,7) NULL` and `longitude DECIMAL(10,7) NULL` hold the verified WGS 84 position of the place from OpenStreetMap. `NULL` means "position not yet verified": the app then shows the place in the journey instructions and labels it as unverified on the map instead of placing a guess marker.
 - A single location can simultaneously be a route origin, route destination, ordered stop, transfer point, landmark, saved-route endpoint, and search-history endpoint. These are separate foreign keys in separate tables, so no duplicate location records are required.
 - `location_type` is a `VARCHAR(50)` rather than an ENUM so administrators can add new categories without changing the schema. Recommended values are documented in the column comment.
 
@@ -810,3 +811,44 @@ Use this checklist before submitting or demonstrating the project:
 - Automatic route optimization beyond the stored transfer connections.
 
 The sample route names, locations, fares, and distances are test data. They must not be described as official or verified in the project documentation.
+
+---
+
+## 12. Location map coordinates (October 2026 migration)
+
+The interactive route-map feature (Django part, `routes` app + Leaflet) needs a geographic position for every terminal, stop and landmark. The 14-table schema must otherwise stay untouched, so the coordinates are carried by **two new NULLable columns on the existing `locations` table** — no extra table:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `locations.latitude` | `DECIMAL(10,7) NULL` | verified WGS 84 latitude from OpenStreetMap |
+| `locations.longitude` | `DECIMAL(10,7) NULL` | verified WGS 84 longitude from OpenStreetMap |
+
+### 12.1 Migration file
+
+`**sakayguide_locations_coordinates.sql**`
+
+1. `ALTER TABLE locations ADD COLUMN IF NOT EXISTS latitude/longitude` (MariaDB syntax; on MySQL 8 delete the words `IF NOT EXISTS`).
+2. Fills the coordinates of the 18 Kabankalan City location rows with values matched from **OpenStreetMap** (state of the OSM database, October 2026). Each `UPDATE` has a comment naming the matching OSM object (for example *OSM "Ceres Bus Terminal", Justice Y. Perez Avenue, Barangay 2*) so every value can be re-checked at <https://www.openstreetmap.org>.
+3. Locations **without a verified OSM match stay `NULL`** — the app then shows such a place in the journey instructions and on the map notes as "map position not yet verified" instead of inventing a marker.
+4. Runs verification queries (`with_coordinates` / `still_missing` counters).
+
+The migration is transactional, contains no `DROP`/`DELETE`, and is safe to repeat (`UPDATE`s simply rewrite the same verified values).
+
+### 12.2 Applying it to an existing database (XAMPP)
+
+From PowerShell in the project folder:
+
+```powershell
+& 'C:\xampp\mysql\bin\mysql.exe' -u root --default-character-set=utf8mb4 `
+  -e "source C:/xampp/htdocs/BSIT3C-SAKAYGUIDE/sakayguide_locations_coordinates.sql"
+```
+
+Or import the file through phpMyAdmin with the `sakayguide_db` database selected.
+
+Fresh installs already get the columns because `sakayguide_db.sql` creates `locations` with both columns; run the coordinates migration right after the Kabankalan scripts to fill their values.
+
+### 12.3 How the map uses the coordinates
+
+- The **starting point** (green marker), **destination** (red marker), **intermediate stops** (blue), **transfer points** (orange, from `route_transfers`) and **landmarks** (small violet dots, from `route_landmarks`) are only drawn when `latitude`/`longitude` are filled.
+- **Line geometry:** the stops of every ride are sent to the free OSRM demo server (`https://router.project-osrm.org`, OpenStreetMap data, no API key), which returns the road-following path. If OSRM cannot be reached, the stops are connected with a clearly-labelled dashed *approximate* line — never presented as the actual road route, and no fake path is drawn after the fact.
+- Everything a journey needs comes from MySQL through Django ORM (see `routes/services.py`); the map engine itself is Leaflet with OpenStreetMap raster tiles. Both parts are keyless and free.
