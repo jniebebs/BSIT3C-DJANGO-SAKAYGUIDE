@@ -334,6 +334,8 @@ html {
 
   .dh-sidebar .navbar-collapse {
     flex: 1 1 auto;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
 
   .dh-sidebar .dh-nav-sidebar-footer {

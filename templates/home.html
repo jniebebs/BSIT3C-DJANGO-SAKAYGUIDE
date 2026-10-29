@@ -1,7 +1,7 @@
 {% extends "theme/base.html" %}
 {% load static %}
 {% block extra_css %}
-<link href="{% static 'css/dashboard.css' %}?v=1" rel="stylesheet"/>
+<link href="{% static 'css/dashboard.css' %}?v=2" rel="stylesheet"/>
 {% endblock %}
 
 {% block content %}
@@ -52,27 +52,6 @@
         {% endif %}
       </div>
     </div>
-
-    {% if stats %}
-    <div class="dh-hero-metrics">
-      <div class="dh-hero-metric">
-        <span class="dh-hero-metric-value">{{ stats.search_week_total }}</span>
-        <span class="dh-hero-metric-label">Searches this week</span>
-      </div>
-      <div class="dh-hero-metric">
-        <span class="dh-hero-metric-value">{{ stats.active_routes }}</span>
-        <span class="dh-hero-metric-label">Active routes</span>
-      </div>
-      <div class="dh-hero-metric">
-        <span class="dh-hero-metric-value">{{ stats.active_locations }}</span>
-        <span class="dh-hero-metric-label">Active locations</span>
-      </div>
-      <div class="dh-hero-metric">
-        <span class="dh-hero-metric-value">{{ stats.commuters }}</span>
-        <span class="dh-hero-metric-label">Registered commuters</span>
-      </div>
-    </div>
-    {% endif %}
   </section>
 
   {% if db_error %}
@@ -91,7 +70,7 @@
   <div class="alert alert-info d-flex align-items-start gap-2 py-2 mb-3" role="alert">
     <i class="fa-solid fa-circle-info mt-1"></i>
     <div class="small">
-      Routes, fares, travel times and transfers shown here are
+      Routes, fares, travel times and transfers shown in SakayGuide are
       <strong>provisional test data</strong> for Kabankalan City &mdash; not
       official transport information.
     </div>
@@ -100,7 +79,9 @@
   {# ---------- KPI CARDS ---------- #}
   <div class="row row-deck g-3 mb-3">
     <div class="col-sm-6 col-xl-3">
-      <div class="card dh-stat-card stat-card-primary h-100">
+      <a href="{% url 'dashboard_routes' %}"
+         class="card dh-stat-card stat-card-primary h-100 dh-stat-card-link"
+         aria-label="Open active routes">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
@@ -112,13 +93,16 @@
           <div class="dh-stat-meta">
             <span><i class="fa-solid fa-signs-post"></i>{{ stats.route_stops }} stops</span>
             <span><i class="fa-solid fa-diagram-project"></i>{{ stats.transfers }} transfers</span>
+            <span class="dh-stat-open">Open <i class="fa-solid fa-arrow-right"></i></span>
           </div>
         </div>
-      </div>
+      </a>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-      <div class="card dh-stat-card stat-card-success h-100">
+      <a href="{% url 'dashboard_locations' %}"
+         class="card dh-stat-card stat-card-success h-100 dh-stat-card-link"
+         aria-label="Open active locations">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
@@ -130,13 +114,16 @@
           <div class="dh-stat-meta">
             <span><i class="fa-solid fa-map-pin"></i>{{ stats.active_with_coords }} mapped</span>
             <span><i class="fa-solid fa-map"></i>{{ stats.barangays }} barangays</span>
+            <span class="dh-stat-open">Open <i class="fa-solid fa-arrow-right"></i></span>
           </div>
         </div>
-      </div>
+      </a>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-      <div class="card dh-stat-card stat-card-info h-100">
+      <a href="{% url 'dashboard_transfers' %}"
+         class="card dh-stat-card stat-card-info h-100 dh-stat-card-link"
+         aria-label="Open transfer links">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
@@ -148,13 +135,16 @@
           <div class="dh-stat-meta">
             <span><i class="fa-solid fa-bus"></i>{{ stats.transport_types }} modes</span>
             <span><i class="fa-solid fa-money-bill-wave"></i>{{ stats.active_fares }} fares</span>
+            <span class="dh-stat-open">Open <i class="fa-solid fa-arrow-right"></i></span>
           </div>
         </div>
-      </div>
+      </a>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-      <div class="card dh-stat-card stat-card-warning h-100">
+      <a href="{% url 'dashboard_commuters' %}"
+         class="card dh-stat-card stat-card-warning h-100 dh-stat-card-link"
+         aria-label="Open commuters">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
@@ -166,244 +156,101 @@
           <div class="dh-stat-meta">
             <span><i class="fa-solid fa-bookmark"></i>{{ stats.saved_routes }} saved routes</span>
             <span><i class="fa-solid fa-magnifying-glass"></i>{{ stats.searches }} searches</span>
+            <span class="dh-stat-open">Open <i class="fa-solid fa-arrow-right"></i></span>
           </div>
         </div>
-      </div>
+      </a>
     </div>
   </div>
 
-  {# ---------- COMPACT METRICS ---------- #}
-  <div class="row row-deck g-3 mb-3">
-    <div class="col-sm-6 col-xl-3">
-      <div class="card dh-metric-card h-100" style="--dh-metric-color: #6366f1;">
-        <div class="card-body">
-          <span class="dh-metric-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
-          <div class="min-w-0">
-            <div class="dh-metric-label">Active fare records</div>
-            <div class="dh-metric-value">{{ stats.active_fares }}</div>
-            <div class="dh-metric-note">
-              {% if stats.fare_average is not None %}
-                Avg &#8369;{{ stats.fare_average|floatformat:2 }} &middot; range &#8369;{{ stats.fare_min }}&ndash;&#8369;{{ stats.fare_max }}
-              {% else %}
-                No fare records yet
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card dh-metric-card h-100" style="--dh-metric-color: #22c55e;">
-        <div class="card-body">
-          <span class="dh-metric-icon"><i class="fa-solid fa-landmark"></i></span>
-          <div class="min-w-0">
-            <div class="dh-metric-label">Route landmarks</div>
-            <div class="dh-metric-value">{{ stats.landmarks }}</div>
-            <div class="dh-metric-note">Points of interest along active routes</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card dh-metric-card h-100" style="--dh-metric-color: #06b6d4;">
-        <div class="card-body">
-          <span class="dh-metric-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
-          <div class="min-w-0">
-            <div class="dh-metric-label">Search history</div>
-            <div class="dh-metric-value">{{ stats.searches }}</div>
-            <div class="dh-metric-note">{{ stats.search_week_total }} recorded in the last 7 days</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card dh-metric-card h-100" style="--dh-metric-color: #f59e0b;">
-        <div class="card-body">
-          <span class="dh-metric-icon"><i class="fa-solid fa-map-location-dot"></i></span>
-          <div class="min-w-0">
-            <div class="dh-metric-label">Verified map points</div>
-            <div class="dh-metric-value">{{ stats.coverage_percent }}%</div>
-            <div class="dh-metric-note">{{ stats.active_with_coords }} of {{ stats.active_locations }} active locations</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ---------- ACTIVITY + POPULAR DESTINATIONS ---------- #}
-  <div class="row row-deck g-3 mb-3">
+  {# ---------- MONITORING SHORTCUTS + COVERAGE ---------- #}
+  <div class="row row-deck g-3">
     <div class="col-lg-8">
       <div class="card h-100">
         <div class="card-header">
           <div class="dh-panel-title">
-            <span class="dh-panel-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="dh-panel-icon"><i class="fa-solid fa-table-columns"></i></span>
             <div>
-              <h3 class="card-title mb-0">Search activity</h3>
+              <h3 class="card-title mb-0">Monitoring</h3>
               <div class="card-subtitle text-muted">
-                Route searches recorded over the last 7 days
-                {% if stats.busiest_day %}
-                  &middot; busiest on {{ stats.busiest_day.label }} ({{ stats.busiest_day.count }})
-                {% endif %}
+                Detailed views now live on their own pages
               </div>
-            </div>
-          </div>
-          <div class="ms-auto text-end">
-            <div class="dh-panel-headline justify-content-end">
-              <span class="h2 mb-0">{{ stats.search_week_total }}</span>
-              {% if stats.search_week_change is None %}
-                <span class="dh-trend dh-trend-neutral">
-                  <i class="fa-solid fa-arrow-trend-up"></i>New activity
-                </span>
-              {% elif stats.search_week_change > 0 %}
-                <span class="dh-trend dh-trend-up">
-                  <i class="fa-solid fa-arrow-trend-up"></i>+{{ stats.search_week_change }}%
-                </span>
-              {% elif stats.search_week_change < 0 %}
-                <span class="dh-trend dh-trend-down">
-                  <i class="fa-solid fa-arrow-trend-down"></i>{{ stats.search_week_change }}%
-                </span>
-              {% else %}
-                <span class="dh-trend dh-trend-neutral">
-                  <i class="fa-solid fa-minus"></i>0%
-                </span>
-              {% endif %}
-            </div>
-            <div class="text-muted small">
-              vs {{ stats.search_previous_week_total }} last week
-            </div>
-          </div>
-        </div>
-        <div class="card-body pt-2">
-          {{ stats.search_activity|json_script:"search-activity-data" }}
-          <div id="dashboard-search-chart" style="min-height: 268px;" role="img"
-               aria-label="Area chart of daily route searches for the last seven days"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-lg-4">
-      <div class="card h-100">
-        <div class="card-header">
-          <div class="dh-panel-title">
-            <span class="dh-panel-icon" style="--dh-panel-color: #f59e0b;">
-              <i class="fa-solid fa-trophy"></i>
-            </span>
-            <div>
-              <h3 class="card-title mb-0">Popular destinations</h3>
-              <div class="card-subtitle text-muted">Most searched drop-off points</div>
             </div>
           </div>
         </div>
         <div class="card-body">
-          {% if stats.top_destinations %}
-          <div class="dh-rank-list">
-            {% for destination in stats.top_destinations %}
-            <div class="dh-rank-row">
-              <span class="dh-rank-index">{{ forloop.counter }}</span>
-              <div class="dh-rank-body">
-                <div class="d-flex align-items-center justify-content-between gap-2">
-                  <span class="dh-rank-name" title="{{ destination.name }}">{{ destination.name }}</span>
-                  <span class="dh-rank-meta text-nowrap">{{ destination.count }}</span>
-                </div>
-                <div class="dh-rank-meta">{{ destination.share }}% of all searches</div>
-                <div class="dh-rank-bar">
-                  <span style="width: {{ destination.bar }}%;"></span>
-                </div>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-          {% else %}
-          <div class="dh-empty">
-            <span class="dh-empty-icon"><i class="fa-solid fa-trophy"></i></span>
-            <div class="fw-semibold">No destination data yet</div>
-            <div class="small">Popular destinations will appear after commuters search for routes.</div>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ---------- ROUTES + QUICK ACTIONS ---------- #}
-  <div class="row row-deck g-3 mb-3">
-    <div class="col-lg-8">
-      <div class="card h-100">
-        <div class="card-header">
-          <div class="dh-panel-title">
-            <span class="dh-panel-icon"><i class="fa-solid fa-table-list"></i></span>
-            <div>
-              <h3 class="card-title mb-0">Active routes</h3>
-              <div class="card-subtitle text-muted">
-                Ordered stops and the lowest active regular fare per route
-              </div>
-            </div>
-          </div>
-          <div class="ms-auto dh-table-toolbar">
-            <span class="badge text-bg-primary">
-              <span data-filter-count="routes">{{ stats.active_routes }}</span> routes
-            </span>
-            <div class="input-group input-group-flat" style="max-width: 13rem;">
-              <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-              <input type="search" class="form-control" id="route-filter"
-                     placeholder="Filter routes…" aria-label="Filter active routes"
-                     autocomplete="off"/>
-            </div>
-          </div>
-        </div>
-        <div class="table-responsive dh-table-scroll">
-          <table class="table table-vcenter card-table" id="routes-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Route</th>
-                <th>Origin &rarr; destination</th>
-                <th class="text-end">Stops</th>
-                <th class="text-end">Est. travel time</th>
-                <th class="text-end">From fare</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for route in stats.routes %}
-              <tr data-filter-row
-                  data-search="{{ route.code }} {{ route.name }} {{ route.transport }} {{ route.origin }} {{ route.destination }}">
-                <td><span class="dh-route-code">{{ route.code }}</span></td>
-                <td>
-                  <span class="dh-route-name">{{ route.name }}</span>
-                  <span class="dh-route-mode d-flex">
-                    <i class="fa-solid {% if 'bus' in route.transport|lower %}fa-bus{% elif 'tricycle' in route.transport|lower %}fa-motorcycle{% elif 'jeep' in route.transport|lower %}fa-van-shuttle{% else %}fa-taxi{% endif %}"></i>
-                    {{ route.transport }}
+          <div class="row g-2">
+            <div class="col-md-6">
+              <a href="{% url 'dashboard_activity' %}" class="dh-quick-action h-100">
+                <span class="dh-quick-action-icon"><i class="fa-solid fa-chart-line"></i></span>
+                <span>
+                  <span class="dh-quick-action-title">Activity</span>
+                  <span class="dh-quick-action-text">
+                    {{ stats.search_week_total }} searches this week &middot; audit trail
                   </span>
-                </td>
-                <td>
-                  <span class="text-muted">{{ route.origin }}</span>
-                  <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
-                  <span class="fw-semibold">{{ route.destination }}</span>
-                </td>
-                <td class="text-end">{{ route.stops }}</td>
-                <td class="text-end text-nowrap">{{ route.travel_time }} min</td>
-                <td class="text-end text-nowrap">
-                  {% if route.min_fare %}<span class="fw-semibold">&#8369;{{ route.min_fare }}</span>{% else %}&mdash;{% endif %}
-                </td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="6">
-                  <div class="dh-empty">
-                    <span class="dh-empty-icon"><i class="fa-solid fa-route"></i></span>
-                    <div class="fw-semibold">No active routes</div>
-                    <div class="small">Add route records to see them listed here.</div>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-              <tr id="routes-empty" hidden>
-                <td colspan="6" class="text-center text-muted py-4">
-                  No routes match your filter.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </span>
+                <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="{% url 'dashboard_routes' %}" class="dh-quick-action h-100">
+                <span class="dh-quick-action-icon"><i class="fa-solid fa-route"></i></span>
+                <span>
+                  <span class="dh-quick-action-title">Active routes</span>
+                  <span class="dh-quick-action-text">
+                    {{ stats.active_routes }} routes &middot; {{ stats.route_stops }} stops
+                  </span>
+                </span>
+                <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="{% url 'dashboard_locations' %}" class="dh-quick-action h-100">
+                <span class="dh-quick-action-icon"><i class="fa-solid fa-location-dot"></i></span>
+                <span>
+                  <span class="dh-quick-action-title">Active locations</span>
+                  <span class="dh-quick-action-text">
+                    {{ stats.active_locations }} places &middot; {{ stats.coverage_percent }}% mapped
+                  </span>
+                </span>
+                <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="{% url 'dashboard_transfers' %}" class="dh-quick-action h-100">
+                <span class="dh-quick-action-icon"><i class="fa-solid fa-diagram-project"></i></span>
+                <span>
+                  <span class="dh-quick-action-title">Transfer links</span>
+                  <span class="dh-quick-action-text">
+                    {{ stats.transfers }} connections &middot; {{ stats.transport_types }} modes
+                  </span>
+                </span>
+                <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="{% url 'dashboard_commuters' %}" class="dh-quick-action h-100">
+                <span class="dh-quick-action-icon"><i class="fa-solid fa-users"></i></span>
+                <span>
+                  <span class="dh-quick-action-title">Commuters</span>
+                  <span class="dh-quick-action-text">
+                    {{ stats.commuters }} active &middot; {{ stats.saved_routes }} saved routes
+                  </span>
+                </span>
+                <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="{% url 'routes:route_search' %}" class="dh-quick-action h-100">
+                <span class="dh-quick-action-icon"><i class="fa-solid fa-magnifying-glass-location"></i></span>
+                <span>
+                  <span class="dh-quick-action-title">Find my route</span>
+                  <span class="dh-quick-action-text">Search origin and destination pairs</span>
+                </span>
+                <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -412,368 +259,50 @@
       <div class="card h-100">
         <div class="card-header">
           <div class="dh-panel-title">
-            <span class="dh-panel-icon" style="--dh-panel-color: #f59e0b;">
-              <i class="fa-solid fa-bolt"></i>
+            <span class="dh-panel-icon" style="--dh-panel-color: #22c55e;">
+              <i class="fa-solid fa-map-location-dot"></i>
             </span>
             <div>
-              <h3 class="card-title mb-0">Quick actions</h3>
-              <div class="card-subtitle text-muted">Shortcuts for daily tasks</div>
+              <h3 class="card-title mb-0">Data coverage</h3>
+              <div class="card-subtitle text-muted">Verified map positions</div>
             </div>
           </div>
         </div>
         <div class="card-body">
-          <div class="d-grid gap-2">
-            <a href="{% url 'routes:route_search' %}" class="dh-quick-action">
-              <span class="dh-quick-action-icon"><i class="fa-solid fa-route"></i></span>
-              <span>
-                <span class="dh-quick-action-title">Find my route</span>
-                <span class="dh-quick-action-text">Search origin and destination pairs</span>
-              </span>
-              <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
-            </a>
-            <a href="{% url 'users:user_list' %}" class="dh-quick-action">
-              <span class="dh-quick-action-icon"><i class="fa-solid fa-user-group"></i></span>
-              <span>
-                <span class="dh-quick-action-title">Manage users</span>
-                <span class="dh-quick-action-text">Review accounts and roles</span>
-              </span>
-              <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
-            </a>
-            <a href="{% url 'info:info_list' %}" class="dh-quick-action">
-              <span class="dh-quick-action-icon"><i class="fa-solid fa-address-card"></i></span>
-              <span>
-                <span class="dh-quick-action-title">Info records</span>
-                <span class="dh-quick-action-text">Browse locations and reference data</span>
-              </span>
-              <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
-            </a>
-            {% if user.is_superuser %}
-            <a href="/admin/" class="dh-quick-action">
-              <span class="dh-quick-action-icon"><i class="fa-solid fa-user-shield"></i></span>
-              <span>
-                <span class="dh-quick-action-title">Admin site</span>
-                <span class="dh-quick-action-text">Open Django administration</span>
-              </span>
-              <i class="fa-solid fa-arrow-right dh-quick-action-arrow"></i>
-            </a>
-            {% endif %}
+          <div class="d-flex align-items-baseline gap-2">
+            <span class="display-6 fw-bold mb-0">{{ stats.coverage_percent }}%</span>
+            <span class="text-muted small">of active locations</span>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="d-flex align-items-center justify-content-between">
-            <span class="text-muted small">Map data coverage</span>
-            <span class="fw-bold">{{ stats.coverage_percent }}%</span>
-          </div>
-          <div class="progress progress-sm mt-2" style="height: 6px;">
+          <div class="progress progress-sm mt-3" style="height: 7px;">
             <div class="progress-bar bg-green" style="width: {{ stats.coverage_percent }}%;"></div>
           </div>
           <div class="text-muted small mt-2">
             {{ stats.active_with_coords }} of {{ stats.active_locations }} active locations have verified coordinates.
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ---------- TRANSFERS + RECENT ACTIVITY ---------- #}
-  <div class="row row-deck g-3 mb-3">
-    <div class="col-lg-7">
-      <div class="card h-100">
-        <div class="card-header">
-          <div class="dh-panel-title">
-            <span class="dh-panel-icon" style="--dh-panel-color: #06b6d4;">
-              <i class="fa-solid fa-diagram-project"></i>
-            </span>
+          <div class="dh-coverage-facts mt-3">
             <div>
-              <h3 class="card-title mb-0">Transfer connections</h3>
-              <div class="card-subtitle text-muted">Provisional inter-route transfers</div>
+              <span class="text-muted small">Barangays</span>
+              <span class="fw-semibold">{{ stats.barangays }}</span>
             </div>
-          </div>
-          <span class="ms-auto badge text-bg-cyan">{{ stats.transfers }} links</span>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-vcenter card-table">
-            <thead>
-              <tr>
-                <th>Connection</th>
-                <th>Transfer point</th>
-                <th class="text-end">Time</th>
-                <th class="text-end">Extra fare</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for transfer in stats.transfer_list %}
-              <tr>
-                <td class="text-nowrap">
-                  <span class="dh-route-code">{{ transfer.from_code }}</span>
-                  <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
-                  <span class="dh-route-code">{{ transfer.to_code }}</span>
-                </td>
-                <td>{{ transfer.location }}</td>
-                <td class="text-end text-nowrap">{{ transfer.time }} min</td>
-                <td class="text-end text-nowrap">
-                  {% if transfer.fare %}&#8369;{{ transfer.fare }}{% else %}&mdash;{% endif %}
-                </td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="4">
-                  <div class="dh-empty">
-                    <span class="dh-empty-icon"><i class="fa-solid fa-diagram-project"></i></span>
-                    <div class="fw-semibold">No transfers defined</div>
-                    <div class="small">Inter-route connections will appear here.</div>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-lg-5">
-      <div class="card h-100">
-        <div class="card-header">
-          <div class="dh-panel-title">
-            <span class="dh-panel-icon" style="--dh-panel-color: #8b5cf6;">
-              <i class="fa-solid fa-clock-rotate-left"></i>
-            </span>
             <div>
-              <h3 class="card-title mb-0">Recent activity</h3>
-              <div class="card-subtitle text-muted">
-                Account, route, fare and location audit entries
-                &middot; {{ stats.activity_this_week }} this week
-              </div>
+              <span class="text-muted small">Inactive locations</span>
+              <span class="fw-semibold">{{ stats.inactive_locations }}</span>
             </div>
-          </div>
-        </div>
-        <div class="card-body py-1">
-          <div class="dh-timeline">
-            {% for log in stats.recent_logs %}
-            <div class="dh-timeline-item">
-              <span class="dh-timeline-dot"
-                    style="--dh-log-color: {% if log.action == 'CREATE' %}#22c55e{% elif log.action == 'DEACTIVATE' %}#d63939{% elif log.action == 'UPDATE' %}#0ea5e9{% elif log.action == 'LOGIN' %}#8b5cf6{% else %}#6366f1{% endif %};">
-                <i class="fa-solid {% if log.action == 'CREATE' %}fa-plus{% elif log.action == 'DEACTIVATE' %}fa-ban{% elif log.action == 'UPDATE' %}fa-pen{% elif log.action == 'LOGIN' %}fa-right-to-bracket{% else %}fa-circle-info{% endif %}"></i>
-              </span>
-              <div class="flex-grow-1 min-w-0">
-                <div class="dh-timeline-title">
-                  <span>{{ log.action|title }}</span>
-                  <span class="text-muted fw-normal">on {{ log.table }}</span>
-                </div>
-                <div class="dh-timeline-text">{{ log.description|default:"No description recorded." }}</div>
-                <div class="dh-timeline-meta">
-                  {{ log.admin }} &middot;
-                  <span title="{{ log.created_at|date:'M j, Y H:i' }}">{{ log.created_at|timesince }} ago</span>
-                </div>
-              </div>
-            </div>
-            {% empty %}
-            <div class="dh-empty">
-              <span class="dh-empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
-              <div class="fw-semibold">No activity recorded</div>
-              <div class="small">Audit log entries will appear here.</div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ---------- TRANSPORT MIX + RECENT SEARCHES ---------- #}
-  <div class="row row-deck g-3 mb-3">
-    <div class="col-lg-5">
-      <div class="card h-100">
-        <div class="card-header">
-          <div class="dh-panel-title">
-            <span class="dh-panel-icon" style="--dh-panel-color: #22c55e;">
-              <i class="fa-solid fa-chart-pie"></i>
-            </span>
             <div>
-              <h3 class="card-title mb-0">Routes by transport mode</h3>
-              <div class="card-subtitle text-muted">Active routes per mode</div>
+              <span class="text-muted small">Audit entries this week</span>
+              <span class="fw-semibold">{{ stats.activity_this_week }}</span>
             </div>
           </div>
         </div>
-        <div class="card-body">
-          {{ stats.transport_breakdown|json_script:"transport-breakdown-data" }}
-          {% if stats.transport_breakdown %}
-          <div class="row align-items-center g-3">
-            <div class="col-sm-6">
-              <div id="dashboard-mode-chart" class="dh-donut-wrap" role="img"
-                   aria-label="Donut chart showing active routes grouped by transport mode"></div>
-            </div>
-            <div class="col-sm-6">
-              <div class="dh-chart-legend">
-                {% for mode in stats.transport_breakdown %}
-                <div class="dh-chart-legend-row">
-                  <span class="dh-chart-swatch"
-                        style="--dh-swatch: {% if forloop.counter == 2 %}#22c55e{% elif forloop.counter == 3 %}#f59e0b{% elif forloop.counter == 4 %}#06b6d4{% elif forloop.counter == 5 %}#ec4899{% elif forloop.counter == 6 %}#8b5cf6{% else %}#6366f1{% endif %};"></span>
-                  <span class="text-truncate">{{ mode.name }}</span>
-                  <span class="dh-chart-legend-count">{{ mode.count }}</span>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-          {% else %}
-          <div class="dh-empty">
-            <span class="dh-empty-icon"><i class="fa-solid fa-chart-pie"></i></span>
-            <div class="fw-semibold">No transport types</div>
-            <div class="small">Transport modes will appear once routes are configured.</div>
-          </div>
-          {% endif %}
+        <div class="card-footer">
+          <a href="{% url 'dashboard_locations' %}" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="fa-solid fa-location-dot me-1"></i> Review locations
+          </a>
         </div>
       </div>
-    </div>
-
-    <div class="col-lg-7">
-      <div class="card h-100">
-        <div class="card-header">
-          <div class="dh-panel-title">
-            <span class="dh-panel-icon" style="--dh-panel-color: #ec4899;">
-              <i class="fa-solid fa-clock"></i>
-            </span>
-            <div>
-              <h3 class="card-title mb-0">Recent searches</h3>
-              <div class="card-subtitle text-muted">Latest commuter route queries</div>
-            </div>
-          </div>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-vcenter card-table">
-            <thead>
-              <tr>
-                <th>Commuter</th>
-                <th>Journey</th>
-                <th class="text-end">Est. travel</th>
-                <th class="text-end">When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for search in stats.recent_searches %}
-              <tr>
-                <td>
-                  <div class="d-flex align-items-center gap-2">
-                    <span class="avatar avatar-sm" style="background-color: rgba(99, 102, 241, 0.12); color: #6366f1;">
-                      {{ search.user|first|upper }}
-                    </span>
-                    <span class="text-truncate">{{ search.user }}</span>
-                  </div>
-                </td>
-                <td>
-                  <span class="text-muted">{{ search.origin }}</span>
-                  <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
-                  <span class="fw-semibold">{{ search.destination }}</span>
-                </td>
-                <td class="text-end text-nowrap">
-                  {% if search.minutes is not None %}
-                  <span class="badge text-bg-cyan">
-                    <i class="fa-solid fa-clock me-1"></i>{{ search.minutes }} min
-                  </span>
-                  {% else %}
-                  <span class="text-muted" title="No active journey found for this pair">&mdash;</span>
-                  {% endif %}
-                </td>
-                <td class="text-end text-muted text-nowrap"
-                    title="{{ search.searched_at|date:'M j, Y H:i' }}">
-                  {{ search.searched_at|timesince }} ago
-                </td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="4">
-                  <div class="dh-empty">
-                    <span class="dh-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
-                    <div class="fw-semibold">No searches recorded</div>
-                    <div class="small">Guest and registered searches will appear here.</div>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ---------- LOCATIONS ---------- #}
-  <div class="card mb-3">
-    <div class="card-header">
-      <div class="dh-panel-title">
-        <span class="dh-panel-icon" style="--dh-panel-color: #0ea5e9;">
-          <i class="fa-solid fa-location-dot"></i>
-        </span>
-        <div>
-          <h3 class="card-title mb-0">Active locations</h3>
-          <div class="card-subtitle text-muted">
-            {{ stats.active_locations }} locations across {{ stats.barangays }} barangays
-            &middot; {{ stats.inactive_locations }} inactive
-          </div>
-        </div>
-      </div>
-      <div class="ms-auto dh-table-toolbar">
-        <span class="badge text-bg-blue">
-          <span data-filter-count="locations">{{ stats.active_locations }}</span> locations
-        </span>
-        <div class="input-group input-group-flat" style="max-width: 14rem;">
-          <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-          <input type="search" class="form-control" id="location-filter"
-                 placeholder="Filter locations…" aria-label="Filter active locations"
-                 autocomplete="off"/>
-        </div>
-      </div>
-    </div>
-    <div class="table-responsive dh-table-scroll">
-      <table class="table table-vcenter card-table table-sm" id="locations-table">
-        <thead>
-          <tr>
-            <th>Location</th>
-            <th>Type</th>
-            <th>Barangay</th>
-            <th class="text-end">Map position</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for location in stats.location_list %}
-          <tr data-filter-row
-              data-search="{{ location.name }} {{ location.type }} {{ location.barangay }}">
-            <td class="fw-semibold">{{ location.name }}</td>
-            <td><span class="dh-location-type">{{ location.type }}</span></td>
-            <td class="text-muted">{{ location.barangay }}</td>
-            <td class="text-end">
-              {% if location.has_coords %}
-              <span class="dh-coord-dot is-verified" title="Verified coordinates">
-                <i class="fa-solid fa-check"></i>
-              </span>
-              {% else %}
-              <span class="dh-coord-dot is-missing" title="Coordinates not yet verified">
-                <i class="fa-solid fa-minus"></i>
-              </span>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="4" class="text-center text-muted py-4">No active locations.</td>
-          </tr>
-          {% endfor %}
-          <tr id="locations-empty" hidden>
-            <td colspan="4" class="text-center text-muted py-4">
-              No locations match your filter.
-            </td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
 
   {% endif %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'js/dashboard.js' %}?v=1"></script>
 {% endblock %}

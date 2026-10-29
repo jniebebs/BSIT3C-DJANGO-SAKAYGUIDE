@@ -1,0 +1,230 @@
+{% extends "dashboard/base.html" %}
+
+{% block detail_pretitle %}Monitor{% endblock %}
+{% block detail_title %}Commuters{% endblock %}
+{% block detail_subtitle %}
+Registered commuter accounts, their saved routes and the latest route searches.
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_activity' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="fa-solid fa-chart-line me-1"></i> View activity
+</a>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row row-deck g-3 mb-3">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #f59e0b;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-users"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Active commuters</div>
+          <div class="dh-metric-value">{{ stats.commuters }}</div>
+          <div class="dh-metric-note">{{ stats.new_commuters_week|default:0 }} new this week</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #6366f1;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-user-group"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Commuter accounts</div>
+          <div class="dh-metric-value">{{ stats.commuter_list|length }}</div>
+          <div class="dh-metric-note">{{ stats.inactive_commuters|default:0 }} inactive</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #22c55e;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-bookmark"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Saved routes</div>
+          <div class="dh-metric-value">{{ stats.saved_routes }}</div>
+          <div class="dh-metric-note">Across all commuter accounts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #06b6d4;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Route searches</div>
+          <div class="dh-metric-value">{{ stats.searches }}</div>
+          <div class="dh-metric-note">{{ stats.search_week_total }} in the last 7 days</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon" style="--dh-panel-color: #f59e0b;">
+        <i class="fa-solid fa-user-group"></i>
+      </span>
+      <div>
+        <h3 class="card-title mb-0">Commuter accounts</h3>
+        <div class="card-subtitle text-muted">
+          Account activity recorded in the SakayGuide database
+        </div>
+      </div>
+    </div>
+    <div class="ms-auto dh-table-toolbar">
+      <span class="badge text-bg-yellow">
+        <span data-filter-count="commuters">{{ stats.commuter_list|length }}</span> accounts
+      </span>
+      <div class="input-group input-group-flat" style="max-width: 14rem;">
+        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="search" class="form-control" id="commuter-filter"
+               placeholder="Filter commuters..." aria-label="Filter commuter accounts"
+               autocomplete="off"/>
+      </div>
+    </div>
+  </div>
+  <div class="table-responsive dh-table-scroll">
+    <table class="table table-vcenter card-table table-sm" id="commuters-table">
+      <thead>
+        <tr>
+          <th>Commuter</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th class="text-end">Searches</th>
+          <th class="text-end">Saved</th>
+          <th class="text-end">Joined</th>
+          <th class="text-end">Last search</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for commuter in stats.commuter_list %}
+        <tr data-filter-row
+            data-search="{{ commuter.name }} {{ commuter.email }} {{ commuter.status }}">
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar avatar-sm" style="background-color: rgba(99, 102, 241, 0.12); color: #6366f1;">
+                {{ commuter.name|first|upper }}
+              </span>
+              <span class="fw-semibold text-truncate">{{ commuter.name }}</span>
+            </div>
+          </td>
+          <td class="text-muted">{{ commuter.email|default:"&mdash;" }}</td>
+          <td>
+            {% if commuter.status == 'active' %}
+            <span class="badge text-bg-success">Active</span>
+            {% else %}
+            <span class="badge text-bg-secondary">{{ commuter.status|title }}</span>
+            {% endif %}
+          </td>
+          <td class="text-end">{{ commuter.searches }}</td>
+          <td class="text-end">{{ commuter.saved_routes }}</td>
+          <td class="text-end text-nowrap">{{ commuter.created_at|date:"M j, Y" }}</td>
+          <td class="text-end text-muted text-nowrap">
+            {% if commuter.last_search %}
+              <span title="{{ commuter.last_search|date:'M j, Y H:i' }}">{{ commuter.last_search|timesince }} ago</span>
+            {% else %}
+              &mdash;
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="dh-empty">
+              <span class="dh-empty-icon"><i class="fa-solid fa-user-group"></i></span>
+              <div class="fw-semibold">No commuter accounts</div>
+              <div class="small">Self-registered commuter accounts will appear here.</div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr id="commuters-empty" hidden>
+          <td colspan="7" class="text-center text-muted py-4">
+            No commuters match your filter.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon" style="--dh-panel-color: #ec4899;">
+        <i class="fa-solid fa-clock"></i>
+      </span>
+      <div>
+        <h3 class="card-title mb-0">Recent searches</h3>
+        <div class="card-subtitle text-muted">
+          Latest commuter and guest route queries with estimated travel time
+        </div>
+      </div>
+    </div>
+    <span class="ms-auto badge text-bg-pink">{{ stats.recent_searches|length }} shown</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>Commuter</th>
+          <th>Journey</th>
+          <th class="text-end">Est. travel</th>
+          <th class="text-end">When</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for search in stats.recent_searches %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar avatar-sm" style="background-color: rgba(99, 102, 241, 0.12); color: #6366f1;">
+                {{ search.user|first|upper }}
+              </span>
+              <span class="text-truncate">{{ search.user }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="text-muted">{{ search.origin }}</span>
+            <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
+            <span class="fw-semibold">{{ search.destination }}</span>
+          </td>
+          <td class="text-end text-nowrap">
+            {% if search.minutes is not None %}
+            <span class="badge text-bg-cyan">
+              <i class="fa-solid fa-clock me-1"></i>{{ search.minutes }} min
+            </span>
+            {% else %}
+            <span class="text-muted" title="No active journey found for this pair">&mdash;</span>
+            {% endif %}
+          </td>
+          <td class="text-end text-muted text-nowrap"
+              title="{{ search.searched_at|date:'M j, Y H:i' }}">
+            {{ search.searched_at|timesince }} ago
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4">
+            <div class="dh-empty">
+              <span class="dh-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <div class="fw-semibold">No searches recorded</div>
+              <div class="small">Guest and registered searches will appear here.</div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

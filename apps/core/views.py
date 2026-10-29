@@ -144,8 +144,10 @@ def logout_view(request):
     return redirect('login')
 
 
-def _sakayguide_stats():
+def _sakayguide_stats(log_limit=6, recent_search_limit=5):
     """Collect dashboard statistics from the SakayGuide transit database."""
+    log_limit = max(0, min(int(log_limit), 200))
+    recent_search_limit = max(0, min(int(recent_search_limit), 200))
     stats = {}
     with connections['sakayguide'].cursor() as cursor:
         cursor.execute(
@@ -256,23 +258,26 @@ def _sakayguide_stats():
             for name, count in cursor.fetchall()
         ]
 
-        cursor.execute(
-            """
-            SELECT u.full_name, a.action_type, a.table_affected,
-                   a.action_description, a.created_at
-              FROM admin_activity_logs a
-              JOIN users u ON u.user_id = a.admin_id
-             ORDER BY a.created_at DESC, a.log_id DESC
-             LIMIT 6
-            """
-        )
-        stats['recent_logs'] = [
-            {
-                'admin': row[0], 'action': row[1], 'table': row[2],
-                'description': row[3], 'created_at': row[4],
-            }
-            for row in cursor.fetchall()
-        ]
+        if log_limit:
+            cursor.execute(
+                f"""
+                SELECT u.full_name, a.action_type, a.table_affected,
+                       a.action_description, a.created_at
+                  FROM admin_activity_logs a
+                  JOIN users u ON u.user_id = a.admin_id
+                 ORDER BY a.created_at DESC, a.log_id DESC
+                 LIMIT {log_limit}
+                """
+            )
+            stats['recent_logs'] = [
+                {
+                    'admin': row[0], 'action': row[1], 'table': row[2],
+                    'description': row[3], 'created_at': row[4],
+                }
+                for row in cursor.fetchall()
+            ]
+        else:
+            stats['recent_logs'] = []
 
         cursor.execute(
             """
@@ -369,34 +374,76 @@ def _sakayguide_stats():
             for name, count in destination_rows
         ]
 
+        if recent_search_limit:
+            cursor.execute(
+                f"""
+                SELECT COALESCE(u.full_name, 'Guest'),
+                       sh.origin_id, o.location_name,
+                       sh.destination_id, d.location_name,
+                       sh.search_date
+                  FROM search_history sh
+                  JOIN locations o ON o.location_id = sh.origin_id
+                  JOIN locations d ON d.location_id = sh.destination_id
+                  LEFT JOIN users u ON u.user_id = sh.user_id
+                 ORDER BY sh.search_date DESC, sh.search_id DESC
+                 LIMIT {recent_search_limit}
+                """
+            )
+            minute_cache = {}
+            recent_searches = []
+            for row in cursor.fetchall():
+                pair = (row[1], row[3])
+                if pair not in minute_cache:
+                    minute_cache[pair] = fastest_travel_minutes(*pair)
+                recent_searches.append({
+                    'user': row[0],
+                    'origin': row[2],
+                    'destination': row[4],
+                    'searched_at': row[5],
+                    'minutes': minute_cache[pair],
+                })
+            stats['recent_searches'] = recent_searches
+        else:
+            stats['recent_searches'] = []
+
         cursor.execute(
             """
-            SELECT COALESCE(u.full_name, 'Guest'),
-                   sh.origin_id, o.location_name,
-                   sh.destination_id, d.location_name,
-                   sh.search_date
-              FROM search_history sh
-              JOIN locations o ON o.location_id = sh.origin_id
-              JOIN locations d ON d.location_id = sh.destination_id
-              LEFT JOIN users u ON u.user_id = sh.user_id
-             ORDER BY sh.search_date DESC, sh.search_id DESC
-             LIMIT 5
+            SELECT u.user_id, u.full_name, u.email, u.status, u.created_at,
+                   (SELECT COUNT(*)
+                      FROM search_history sh
+                     WHERE sh.user_id = u.user_id) AS search_count,
+                   (SELECT COUNT(*)
+                      FROM saved_routes sr
+                     WHERE sr.user_id = u.user_id) AS saved_count,
+                   (SELECT MAX(sh.search_date)
+                      FROM search_history sh
+                     WHERE sh.user_id = u.user_id) AS last_search
+              FROM users u
+             WHERE u.role = 'commuter'
+             ORDER BY u.created_at DESC, u.user_id DESC
             """
         )
-        minute_cache = {}
-        recent_searches = []
-        for row in cursor.fetchall():
-            pair = (row[1], row[3])
-            if pair not in minute_cache:
-                minute_cache[pair] = fastest_travel_minutes(*pair)
-            recent_searches.append({
-                'user': row[0],
-                'origin': row[2],
-                'destination': row[4],
-                'searched_at': row[5],
-                'minutes': minute_cache[pair],
-            })
-        stats['recent_searches'] = recent_searches
+        stats['commuter_list'] = [
+            {
+                'user_id': row[0],
+                'name': row[1] or 'Unnamed commuter',
+                'email': row[2] or '',
+                'status': row[3],
+                'created_at': row[4],
+                'searches': row[5],
+                'saved_routes': row[6],
+                'last_search': row[7],
+            }
+            for row in cursor.fetchall()
+        ]
+        stats['inactive_commuters'] = max(
+            0, len(stats['commuter_list']) - (stats['commuters'] or 0)
+        )
+        stats['new_commuters_week'] = sum(
+            1 for commuter in stats['commuter_list']
+            if commuter['created_at']
+            and commuter['created_at'].date() >= week_start
+        )
 
         # ---- Network / data completeness ------------------------------------
         cursor.execute(
@@ -438,19 +485,83 @@ def _sakayguide_stats():
     return stats
 
 
-@login_required(login_url='login')
-def home(request):
+def _dashboard_page(request, template_name, **stats_options):
+    """Render a dashboard page from the shared SakayGuide statistics."""
     stats = None
     error = None
     try:
-        stats = _sakayguide_stats()
+        stats = _sakayguide_stats(**stats_options)
     except (OperationalError, DatabaseError) as exc:
         error = (
             'Could not connect to the SakayGuide database '
             '(sakayguide_db). Start MySQL/XAMPP and try again. '
             f'({exc.__class__.__name__})'
         )
-    return render(request, 'home.html', {'stats': stats, 'db_error': error})
+    return render(
+        request,
+        template_name,
+        {'stats': stats, 'db_error': error},
+    )
+
+
+@login_required(login_url='login')
+def home(request):
+    return _dashboard_page(
+        request,
+        'home.html',
+        log_limit=0,
+        recent_search_limit=0,
+    )
+
+
+@login_required(login_url='login')
+def activity(request):
+    return _dashboard_page(
+        request,
+        'dashboard/activity.html',
+        log_limit=40,
+        recent_search_limit=0,
+    )
+
+
+@login_required(login_url='login')
+def active_routes(request):
+    return _dashboard_page(
+        request,
+        'dashboard/routes.html',
+        log_limit=0,
+        recent_search_limit=0,
+    )
+
+
+@login_required(login_url='login')
+def active_locations(request):
+    return _dashboard_page(
+        request,
+        'dashboard/locations.html',
+        log_limit=0,
+        recent_search_limit=0,
+    )
+
+
+@login_required(login_url='login')
+def transfer_links(request):
+    return _dashboard_page(
+        request,
+        'dashboard/transfers.html',
+        log_limit=0,
+        recent_search_limit=0,
+    )
+
+
+@login_required(login_url='login')
+def commuters(request):
+    return _dashboard_page(
+        request,
+        'dashboard/commuters.html',
+        log_limit=0,
+        recent_search_limit=20,
+    )
 
 
 @require_http_methods(['GET', 'POST'])

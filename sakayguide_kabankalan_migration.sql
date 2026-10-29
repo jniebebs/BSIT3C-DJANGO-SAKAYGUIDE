@@ -267,6 +267,62 @@ INSERT INTO admin_activity_logs (log_id, admin_id, action_type, table_affected, 
 -- 15. REMOVE MULTICAB TRANSPORT TYPE (route 5 reassigned to jeepney)
 DELETE FROM transportation_types WHERE transport_type_id = 4;
 
+-- 16. ROUTES 7-8: Bantayan - Barangay 1 (Poblacion) connects upland Bantayan
+--     to Barangay 1 and the central Public Terminal hub.
+INSERT INTO routes (route_id, route_name, route_code, origin_id, destination_id, transport_type_id, estimated_travel_time, route_description, status, created_at, updated_at)
+VALUES
+  (7, 'Bantayan - Barangay 1 (Poblacion) Jeepney', 'KAB-JP-07', 19, 34, 1, 40,
+   'PROVISIONAL TEST ROUTE: Bantayan to Barangay 1 (Poblacion) via the Public Terminal and Bacolod South Road.',
+   'active', '2026-10-29 08:00:00', '2026-10-29 08:00:00'),
+  (8, 'Barangay 1 (Poblacion) - Bantayan Jeepney', 'KAB-JP-08', 34, 19, 1, 40,
+   'PROVISIONAL TEST ROUTE: Barangay 1 (Poblacion) to Bantayan via the Public Terminal and Bacolod South Road.',
+   'active', '2026-10-29 08:00:00', '2026-10-29 08:00:00')
+ON DUPLICATE KEY UPDATE
+  route_name = VALUES(route_name),
+  route_code = VALUES(route_code),
+  origin_id = VALUES(origin_id),
+  destination_id = VALUES(destination_id),
+  transport_type_id = VALUES(transport_type_id),
+  estimated_travel_time = VALUES(estimated_travel_time),
+  route_description = VALUES(route_description),
+  status = VALUES(status);
+
+INSERT INTO route_stops (route_id, location_id, stop_order, is_transfer_point, estimated_stop_time) VALUES
+  (7, 19, 1, 0, 0),
+  (7, 2,  2, 1, 35),
+  (7, 34, 3, 0, 40),
+  (8, 34, 1, 0, 0),
+  (8, 2,  2, 1, 5),
+  (8, 19, 3, 0, 40)
+ON DUPLICATE KEY UPDATE
+  stop_order = VALUES(stop_order),
+  is_transfer_point = VALUES(is_transfer_point),
+  estimated_stop_time = VALUES(estimated_stop_time);
+
+INSERT INTO route_fares (route_id, fare_type_id, minimum_fare, fare_per_km, total_estimated_fare, effective_date, status) VALUES
+  (7, 1, 35.00, 0.00, 35.00, '2026-01-01', 'active'),
+  (7, 2, 28.00, 0.00, 28.00, '2026-01-01', 'active'),
+  (7, 3, 28.00, 0.00, 28.00, '2026-01-01', 'active'),
+  (7, 4, 28.00, 0.00, 28.00, '2026-01-01', 'active'),
+  (8, 1, 35.00, 0.00, 35.00, '2026-01-01', 'active'),
+  (8, 2, 28.00, 0.00, 28.00, '2026-01-01', 'active'),
+  (8, 3, 28.00, 0.00, 28.00, '2026-01-01', 'active'),
+  (8, 4, 28.00, 0.00, 28.00, '2026-01-01', 'active')
+ON DUPLICATE KEY UPDATE
+  minimum_fare = VALUES(minimum_fare),
+  total_estimated_fare = VALUES(total_estimated_fare),
+  status = VALUES(status);
+
+INSERT INTO route_transfers (from_route_id, to_route_id, transfer_location_id, transfer_instructions, estimated_transfer_time, additional_estimated_fare) VALUES
+  (7, 1, 2, 'PROVISIONAL: Alight at the Public Terminal. Board the jeepney heading to the City Government Center (KAB-JP-01).', 5, 0.00),
+  (7, 5, 2, 'PROVISIONAL: Alight at the Public Terminal. Board the jeepney heading to Tabugon (KAB-JP-05).', 5, 0.00),
+  (7, 6, 2, 'PROVISIONAL: Alight at the Public Terminal. Board the tricycle heading to Kabankalan Catholic College (KAB-TRI-06).', 5, 0.00),
+  (2, 8, 2, 'PROVISIONAL: Alight at the Public Terminal. Board the jeepney heading to Bantayan (KAB-JP-08).', 5, 0.00),
+  (3, 8, 2, 'PROVISIONAL: Alight at the Public Terminal. Board the jeepney heading to Bantayan (KAB-JP-08).', 5, 0.00)
+ON DUPLICATE KEY UPDATE
+  transfer_instructions = VALUES(transfer_instructions),
+  estimated_transfer_time = VALUES(estimated_transfer_time);
+
 COMMIT;
 
 -- =====================================================================

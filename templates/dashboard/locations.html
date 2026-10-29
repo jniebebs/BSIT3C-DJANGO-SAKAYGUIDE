@@ -1,0 +1,156 @@
+{% extends "dashboard/base.html" %}
+
+{% block detail_pretitle %}Monitor{% endblock %}
+{% block detail_title %}Active Locations{% endblock %}
+{% block detail_subtitle %}
+Every active pickup point, landmark and destination in the Kabankalan City route network.
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'routes:route_search' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="fa-solid fa-map me-1"></i> Open city map
+</a>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row row-deck g-3 mb-3">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #22c55e;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-location-dot"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Active locations</div>
+          <div class="dh-metric-value">{{ stats.active_locations }}</div>
+          <div class="dh-metric-note">Across {{ stats.barangays }} barangays</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #06b6d4;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-map-pin"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Verified map points</div>
+          <div class="dh-metric-value">{{ stats.active_with_coords }}</div>
+          <div class="dh-metric-note">{{ stats.coverage_percent }}% of active locations</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #6366f1;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-map"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Barangays</div>
+          <div class="dh-metric-value">{{ stats.barangays }}</div>
+          <div class="dh-metric-note">Covered by the location directory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #f59e0b;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-circle-minus"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Inactive locations</div>
+          <div class="dh-metric-value">{{ stats.inactive_locations }}</div>
+          <div class="dh-metric-note">Hidden from route planning</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div>
+        <div class="dh-metric-label">Map coverage</div>
+        <div class="text-muted small">
+          {{ stats.active_with_coords }} of {{ stats.active_locations }} active locations have verified coordinates.
+        </div>
+      </div>
+      <div class="fw-bold fs-3">{{ stats.coverage_percent }}%</div>
+    </div>
+    <div class="progress progress-sm mt-3" style="height: 7px;">
+      <div class="progress-bar bg-green" style="width: {{ stats.coverage_percent }}%;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon" style="--dh-panel-color: #0ea5e9;">
+        <i class="fa-solid fa-location-dot"></i>
+      </span>
+      <div>
+        <h3 class="card-title mb-0">Active locations</h3>
+        <div class="card-subtitle text-muted">
+          {{ stats.active_locations }} locations across {{ stats.barangays }} barangays
+          &middot; {{ stats.inactive_locations }} inactive
+        </div>
+      </div>
+    </div>
+    <div class="ms-auto dh-table-toolbar">
+      <span class="badge text-bg-blue">
+        <span data-filter-count="locations">{{ stats.active_locations }}</span> locations
+      </span>
+      <div class="input-group input-group-flat" style="max-width: 14rem;">
+        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="search" class="form-control" id="location-filter"
+               placeholder="Filter locations..." aria-label="Filter active locations"
+               autocomplete="off"/>
+      </div>
+    </div>
+  </div>
+  <div class="table-responsive dh-table-scroll">
+    <table class="table table-vcenter card-table table-sm" id="locations-table">
+      <thead>
+        <tr>
+          <th>Location</th>
+          <th>Type</th>
+          <th>Barangay</th>
+          <th class="text-end">Map position</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for location in stats.location_list %}
+        <tr data-filter-row
+            data-search="{{ location.name }} {{ location.type }} {{ location.barangay }}">
+          <td class="fw-semibold">{{ location.name }}</td>
+          <td><span class="dh-location-type">{{ location.type }}</span></td>
+          <td class="text-muted">{{ location.barangay }}</td>
+          <td class="text-end">
+            {% if location.has_coords %}
+            <span class="dh-coord-dot is-verified" title="Verified coordinates">
+              <i class="fa-solid fa-check"></i>
+            </span>
+            {% else %}
+            <span class="dh-coord-dot is-missing" title="Coordinates not yet verified">
+              <i class="fa-solid fa-minus"></i>
+            </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center text-muted py-4">No active locations.</td>
+        </tr>
+        {% endfor %}
+        <tr id="locations-empty" hidden>
+          <td colspan="4" class="text-center text-muted py-4">
+            No locations match your filter.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

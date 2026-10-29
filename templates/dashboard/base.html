@@ -1,0 +1,43 @@
+{% extends "theme/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link href="{% static 'css/dashboard.css' %}?v=2" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="dh-dashboard dh-detail-page">
+
+  <div class="dh-detail-header">
+    <div class="min-w-0">
+      <a href="{% url 'dashboard' %}" class="dh-back-link">
+        <i class="fa-solid fa-arrow-left"></i> Back to dashboard
+      </a>
+      <div class="dh-detail-pretitle">{% block detail_pretitle %}Monitor{% endblock %}</div>
+      <h1 class="dh-detail-title">{% block detail_title %}{% endblock %}</h1>
+      <p class="dh-detail-subtitle">{% block detail_subtitle %}{% endblock %}</p>
+    </div>
+    <div class="dh-detail-actions">
+      {% block detail_actions %}{% endblock %}
+    </div>
+  </div>
+
+  {% if db_error %}
+  <div class="alert alert-danger" role="alert">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div><i class="fa-solid fa-triangle-exclamation me-2"></i>{{ db_error }}</div>
+      <a href="{{ request.path }}" class="btn btn-danger btn-sm">
+        <i class="fa-solid fa-rotate-right me-1"></i>Retry
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if stats %}
+    {% block detail_content %}{% endblock %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard.js' %}?v=2"></script>
+{% endblock %}

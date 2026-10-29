@@ -1,0 +1,214 @@
+{% extends "dashboard/base.html" %}
+
+{% block detail_pretitle %}Monitor{% endblock %}
+{% block detail_title %}Activity{% endblock %}
+{% block detail_subtitle %}
+Search demand and the account, route, fare and location audit trail across SakayGuide.
+{% endblock %}
+
+{% block detail_content %}
+<div class="row row-deck g-3 mb-3">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #6366f1;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-chart-line"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Searches this week</div>
+          <div class="dh-metric-value">{{ stats.search_week_total }}</div>
+          <div class="dh-metric-note">
+            vs {{ stats.search_previous_week_total }} last week
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #06b6d4;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-calendar-day"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Busiest day</div>
+          <div class="dh-metric-value">
+            {% if stats.busiest_day %}{{ stats.busiest_day.label }}{% else %}&mdash;{% endif %}
+          </div>
+          <div class="dh-metric-note">
+            {% if stats.busiest_day %}
+              {{ stats.busiest_day.count }} searches on {{ stats.busiest_day.full_label }}
+            {% else %}
+              No searches recorded in the last 7 days
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #22c55e;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">All searches</div>
+          <div class="dh-metric-value">{{ stats.searches }}</div>
+          <div class="dh-metric-note">Guest and registered route queries</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #8b5cf6;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Audit entries this week</div>
+          <div class="dh-metric-value">{{ stats.activity_this_week }}</div>
+          <div class="dh-metric-note">Account, route, fare and location changes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row row-deck g-3 mb-3">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <div>
+            <h3 class="card-title mb-0">Search activity</h3>
+            <div class="card-subtitle text-muted">
+              Route searches recorded over the last 7 days
+              {% if stats.busiest_day %}
+                &middot; busiest on {{ stats.busiest_day.label }} ({{ stats.busiest_day.count }})
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="ms-auto text-end">
+          <div class="dh-panel-headline justify-content-end">
+            <span class="h2 mb-0">{{ stats.search_week_total }}</span>
+            {% if stats.search_week_change is None %}
+              <span class="dh-trend dh-trend-neutral">
+                <i class="fa-solid fa-arrow-trend-up"></i>New activity
+              </span>
+            {% elif stats.search_week_change > 0 %}
+              <span class="dh-trend dh-trend-up">
+                <i class="fa-solid fa-arrow-trend-up"></i>+{{ stats.search_week_change }}%
+              </span>
+            {% elif stats.search_week_change < 0 %}
+              <span class="dh-trend dh-trend-down">
+                <i class="fa-solid fa-arrow-trend-down"></i>{{ stats.search_week_change }}%
+              </span>
+            {% else %}
+              <span class="dh-trend dh-trend-neutral">
+                <i class="fa-solid fa-minus"></i>0%
+              </span>
+            {% endif %}
+          </div>
+          <div class="text-muted small">
+            vs {{ stats.search_previous_week_total }} last week
+          </div>
+        </div>
+      </div>
+      <div class="card-body pt-2">
+        {{ stats.search_activity|json_script:"search-activity-data" }}
+        <div id="dashboard-search-chart" style="min-height: 268px;" role="img"
+             aria-label="Area chart of daily route searches for the last seven days"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #f59e0b;">
+            <i class="fa-solid fa-trophy"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Popular destinations</h3>
+            <div class="card-subtitle text-muted">Most searched drop-off points</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if stats.top_destinations %}
+        <div class="dh-rank-list">
+          {% for destination in stats.top_destinations %}
+          <div class="dh-rank-row">
+            <span class="dh-rank-index">{{ forloop.counter }}</span>
+            <div class="dh-rank-body">
+              <div class="d-flex align-items-center justify-content-between gap-2">
+                <span class="dh-rank-name" title="{{ destination.name }}">{{ destination.name }}</span>
+                <span class="dh-rank-meta text-nowrap">{{ destination.count }}</span>
+              </div>
+              <div class="dh-rank-meta">{{ destination.share }}% of all searches</div>
+              <div class="dh-rank-bar">
+                <span style="width: {{ destination.bar }}%;"></span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-trophy"></i></span>
+          <div class="fw-semibold">No destination data yet</div>
+          <div class="small">Popular destinations will appear after commuters search for routes.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon" style="--dh-panel-color: #8b5cf6;">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </span>
+      <div>
+        <h3 class="card-title mb-0">Audit trail</h3>
+        <div class="card-subtitle text-muted">
+          Account, route, fare and location audit entries
+          &middot; {{ stats.activity_this_week }} this week
+        </div>
+      </div>
+    </div>
+    <span class="ms-auto badge text-bg-purple">{{ stats.recent_logs|length }} shown</span>
+  </div>
+  <div class="card-body py-1">
+    <div class="dh-timeline">
+      {% for log in stats.recent_logs %}
+      <div class="dh-timeline-item">
+        <span class="dh-timeline-dot"
+              style="--dh-log-color: {% if log.action == 'CREATE' %}#22c55e{% elif log.action == 'DEACTIVATE' %}#d63939{% elif log.action == 'UPDATE' %}#0ea5e9{% elif log.action == 'LOGIN' %}#8b5cf6{% else %}#6366f1{% endif %};">
+          <i class="fa-solid {% if log.action == 'CREATE' %}fa-plus{% elif log.action == 'DEACTIVATE' %}fa-ban{% elif log.action == 'UPDATE' %}fa-pen{% elif log.action == 'LOGIN' %}fa-right-to-bracket{% else %}fa-circle-info{% endif %}"></i>
+        </span>
+        <div class="flex-grow-1 min-w-0">
+          <div class="dh-timeline-title">
+            <span>{{ log.action|title }}</span>
+            <span class="text-muted fw-normal">on {{ log.table }}</span>
+          </div>
+          <div class="dh-timeline-text">{{ log.description|default:"No description recorded." }}</div>
+          <div class="dh-timeline-meta">
+            {{ log.admin }} &middot;
+            <span title="{{ log.created_at|date:'M j, Y H:i' }}">{{ log.created_at|timesince }} ago</span>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="dh-empty">
+        <span class="dh-empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+        <div class="fw-semibold">No activity recorded</div>
+        <div class="small">Audit log entries will appear here.</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

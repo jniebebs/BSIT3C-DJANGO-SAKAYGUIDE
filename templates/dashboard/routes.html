@@ -1,0 +1,250 @@
+{% extends "dashboard/base.html" %}
+
+{% block detail_pretitle %}Monitor{% endblock %}
+{% block detail_title %}Active Routes{% endblock %}
+{% block detail_subtitle %}
+Route coverage, stops, travel times and the lowest active fare recorded for each route.
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'routes:route_search' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="fa-solid fa-route me-1"></i> Find a route
+</a>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row row-deck g-3 mb-3">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #6366f1;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-route"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Active routes</div>
+          <div class="dh-metric-value">{{ stats.active_routes }}</div>
+          <div class="dh-metric-note">{{ stats.route_stops }} recorded stops</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #22c55e;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-bus"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Transport modes</div>
+          <div class="dh-metric-value">{{ stats.transport_types }}</div>
+          <div class="dh-metric-note">Active public transport types</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #06b6d4;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Active fares</div>
+          <div class="dh-metric-value">{{ stats.active_fares }}</div>
+          <div class="dh-metric-note">
+            {% if stats.fare_average is not None %}
+              Avg &#8369;{{ stats.fare_average|floatformat:2 }} per route
+            {% else %}
+              No fare records yet
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #f59e0b;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-landmark"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Route landmarks</div>
+          <div class="dh-metric-value">{{ stats.landmarks }}</div>
+          <div class="dh-metric-note">Points of interest along active routes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon"><i class="fa-solid fa-table-list"></i></span>
+      <div>
+        <h3 class="card-title mb-0">Active routes</h3>
+        <div class="card-subtitle text-muted">
+          Ordered stops, estimated travel time and the lowest active regular fare per route
+        </div>
+      </div>
+    </div>
+    <div class="ms-auto dh-table-toolbar">
+      <span class="badge text-bg-primary">
+        <span data-filter-count="routes">{{ stats.active_routes }}</span> routes
+      </span>
+      <div class="input-group input-group-flat" style="max-width: 13rem;">
+        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="search" class="form-control" id="route-filter"
+               placeholder="Filter routes..." aria-label="Filter active routes"
+               autocomplete="off"/>
+      </div>
+    </div>
+  </div>
+  <div class="table-responsive dh-table-scroll">
+    <table class="table table-vcenter card-table" id="routes-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Route</th>
+          <th>Origin &rarr; destination</th>
+          <th class="text-end">Stops</th>
+          <th class="text-end">Est. travel time</th>
+          <th class="text-end">From fare</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for route in stats.routes %}
+        <tr data-filter-row
+            data-search="{{ route.code }} {{ route.name }} {{ route.transport }} {{ route.origin }} {{ route.destination }}">
+          <td><span class="dh-route-code">{{ route.code }}</span></td>
+          <td>
+            <span class="dh-route-name">{{ route.name }}</span>
+            <span class="dh-route-mode d-flex">
+              <i class="fa-solid {% if 'bus' in route.transport|lower %}fa-bus{% elif 'tricycle' in route.transport|lower %}fa-motorcycle{% elif 'jeep' in route.transport|lower %}fa-van-shuttle{% else %}fa-taxi{% endif %}"></i>
+              {{ route.transport }}
+            </span>
+          </td>
+          <td>
+            <span class="text-muted">{{ route.origin }}</span>
+            <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
+            <span class="fw-semibold">{{ route.destination }}</span>
+          </td>
+          <td class="text-end">{{ route.stops }}</td>
+          <td class="text-end text-nowrap">{{ route.travel_time }} min</td>
+          <td class="text-end text-nowrap">
+            {% if route.min_fare %}<span class="fw-semibold">&#8369;{{ route.min_fare }}</span>{% else %}&mdash;{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="dh-empty">
+              <span class="dh-empty-icon"><i class="fa-solid fa-route"></i></span>
+              <div class="fw-semibold">No active routes</div>
+              <div class="small">Add route records to see them listed here.</div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr id="routes-empty" hidden>
+          <td colspan="6" class="text-center text-muted py-4">
+            No routes match your filter.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row row-deck g-3 mb-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #22c55e;">
+            <i class="fa-solid fa-chart-pie"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Routes by transport mode</h3>
+            <div class="card-subtitle text-muted">Active routes per mode</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {{ stats.transport_breakdown|json_script:"transport-breakdown-data" }}
+        {% if stats.transport_breakdown %}
+        <div class="row align-items-center g-3">
+          <div class="col-sm-6">
+            <div id="dashboard-mode-chart" class="dh-donut-wrap" role="img"
+                 aria-label="Donut chart showing active routes grouped by transport mode"></div>
+          </div>
+          <div class="col-sm-6">
+            <div class="dh-chart-legend">
+              {% for mode in stats.transport_breakdown %}
+              <div class="dh-chart-legend-row">
+                <span class="dh-chart-swatch"
+                      style="--dh-swatch: {% if forloop.counter == 2 %}#22c55e{% elif forloop.counter == 3 %}#f59e0b{% elif forloop.counter == 4 %}#06b6d4{% elif forloop.counter == 5 %}#ec4899{% elif forloop.counter == 6 %}#8b5cf6{% else %}#6366f1{% endif %};"></span>
+                <span class="text-truncate">{{ mode.name }}</span>
+                <span class="dh-chart-legend-count">{{ mode.count }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-chart-pie"></i></span>
+          <div class="fw-semibold">No transport types</div>
+          <div class="small">Transport modes will appear once routes are configured.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #06b6d4;">
+            <i class="fa-solid fa-money-bill-wave"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Fare snapshot</h3>
+            <div class="card-subtitle text-muted">Active regular fares across routes</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if stats.fare_average is not None %}
+        <div class="dh-fare-grid">
+          <div>
+            <span class="dh-fare-label">Lowest</span>
+            <span class="dh-fare-value">&#8369;{{ stats.fare_min }}</span>
+          </div>
+          <div>
+            <span class="dh-fare-label">Average</span>
+            <span class="dh-fare-value">&#8369;{{ stats.fare_average|floatformat:2 }}</span>
+          </div>
+          <div>
+            <span class="dh-fare-label">Highest</span>
+            <span class="dh-fare-value">&#8369;{{ stats.fare_max }}</span>
+          </div>
+        </div>
+        <div class="text-muted small mt-3">
+          Based on {{ stats.active_fares }} active fare record{{ stats.active_fares|pluralize }}.
+          Fares are provisional and may change.
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+          <div class="fw-semibold">No fare records</div>
+          <div class="small">Active fares will appear once configured.</div>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-footer">
+        <a href="{% url 'dashboard_transfers' %}" class="btn btn-outline-secondary btn-sm w-100">
+          <i class="fa-solid fa-diagram-project me-1"></i> Review transfer links
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "dashboard/base.html" %}
+
+{% block detail_pretitle %}Monitor{% endblock %}
+{% block detail_title %}Transfer Links{% endblock %}
+{% block detail_subtitle %}
+Inter-route connections, transfer points and the extra estimated fare for each connection.
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_routes' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="fa-solid fa-route me-1"></i> Active routes
+</a>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row row-deck g-3 mb-3">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #06b6d4;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-diagram-project"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Transfer links</div>
+          <div class="dh-metric-value">{{ stats.transfers }}</div>
+          <div class="dh-metric-note">Inter-route connections</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #22c55e;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-bus"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Transport modes</div>
+          <div class="dh-metric-value">{{ stats.transport_types }}</div>
+          <div class="dh-metric-note">Active public transport types</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #6366f1;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-route"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Active routes</div>
+          <div class="dh-metric-value">{{ stats.active_routes }}</div>
+          <div class="dh-metric-note">Routes available for transfers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="card dh-metric-card h-100" style="--dh-metric-color: #f59e0b;">
+      <div class="card-body">
+        <span class="dh-metric-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+        <div class="min-w-0">
+          <div class="dh-metric-label">Active fares</div>
+          <div class="dh-metric-value">{{ stats.active_fares }}</div>
+          <div class="dh-metric-note">Fare records across active routes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon" style="--dh-panel-color: #06b6d4;">
+        <i class="fa-solid fa-diagram-project"></i>
+      </span>
+      <div>
+        <h3 class="card-title mb-0">Transfer connections</h3>
+        <div class="card-subtitle text-muted">
+          Provisional inter-route transfers and their additional estimated fare
+        </div>
+      </div>
+    </div>
+    <span class="ms-auto badge text-bg-cyan">{{ stats.transfers }} links</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>Connection</th>
+          <th>Transfer point</th>
+          <th class="text-end">Time</th>
+          <th class="text-end">Extra fare</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for transfer in stats.transfer_list %}
+        <tr>
+          <td class="text-nowrap">
+            <span class="dh-route-code">{{ transfer.from_code }}</span>
+            <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
+            <span class="dh-route-code">{{ transfer.to_code }}</span>
+          </td>
+          <td>{{ transfer.location }}</td>
+          <td class="text-end text-nowrap">{{ transfer.time }} min</td>
+          <td class="text-end text-nowrap">
+            {% if transfer.fare %}&#8369;{{ transfer.fare }}{% else %}&mdash;{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4">
+            <div class="dh-empty">
+              <span class="dh-empty-icon"><i class="fa-solid fa-diagram-project"></i></span>
+              <div class="fw-semibold">No transfers defined</div>
+              <div class="small">Inter-route connections will appear here.</div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

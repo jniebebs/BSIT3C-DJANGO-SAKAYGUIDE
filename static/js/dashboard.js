@@ -229,6 +229,13 @@
       '[data-filter-count="locations"]',
       'locations-empty'
     );
+
+    setupTableFilter(
+      'commuter-filter',
+      '#commuters-table tbody tr[data-filter-row]',
+      '[data-filter-count="commuters"]',
+      'commuters-empty'
+    );
   }
 
   if (document.readyState === 'loading') {

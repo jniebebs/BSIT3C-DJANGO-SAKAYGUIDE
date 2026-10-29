@@ -51,6 +51,53 @@
         </li>
 
         <li class="nav-item">
+          <span class="dh-nav-section">Monitor</span>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_activity' %}active{% endif %}" href="{% url 'dashboard_activity' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-chart-line"></i>
+            </span>
+            <span class="nav-link-title">Activity</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_routes' %}active{% endif %}" href="{% url 'dashboard_routes' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-route"></i>
+            </span>
+            <span class="nav-link-title">Active Routes</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_locations' %}active{% endif %}" href="{% url 'dashboard_locations' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-location-dot"></i>
+            </span>
+            <span class="nav-link-title">Active Locations</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_transfers' %}active{% endif %}" href="{% url 'dashboard_transfers' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-diagram-project"></i>
+            </span>
+            <span class="nav-link-title">Transfer Links</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_commuters' %}active{% endif %}" href="{% url 'dashboard_commuters' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-users"></i>
+            </span>
+            <span class="nav-link-title">Commuters</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <span class="dh-nav-section">Manage</span>
+        </li>
+        <li class="nav-item">
           <a class="nav-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:user_list' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="nav-icon fas fa-users"></i>
