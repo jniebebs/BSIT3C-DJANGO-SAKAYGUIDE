@@ -12,6 +12,9 @@ ACTIVE = 'active'
 INACTIVE = 'inactive'
 STATUS_CHOICES = [(ACTIVE, 'Active'), (INACTIVE, 'Inactive')]
 
+# Location type used by the 32 Kabankalan City barangay records.
+BARANGAY_LOCATION_TYPE = 'barangay'
+
 
 class Municipality(models.Model):
     municipality_id = models.AutoField(primary_key=True)

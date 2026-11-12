@@ -1,5 +1,6 @@
 /* SakayGuide "Where do you want to go?" search controls:
-   searchable From/To comboboxes, swap, clear, popular-destination chips. */
+   searchable From/To comboboxes, swap, clear, popular-destination chips,
+   and destination fare/time summaries. */
 (function () {
   'use strict';
 
@@ -14,6 +15,14 @@
     LOCATIONS = JSON.parse(dataEl.textContent || '[]');
   } catch (error) {
     LOCATIONS = [];
+  }
+
+  var summaryUrl = form.getAttribute('data-summary-url') || '';
+  var summaries = { originId: null, status: 'idle', data: {} };
+  var summaryRequest = 0;
+
+  function formatFare(value) {
+    return Number(value).toFixed(2);
   }
 
   function findByLocationId(id) {
@@ -50,10 +59,46 @@
     if (!textInput || !hiddenInput || !menu) {
       return null;
     }
+    var isDestination = hiddenInput.name === 'destination';
 
     function closeMenu() {
       menu.hidden = true;
       textInput.setAttribute('aria-expanded', 'false');
+    }
+
+    function refresh() {
+      if (!menu.hidden) {
+        renderList(textInput.value);
+      }
+    }
+
+    /* Fare/time line shown for the destination dropdown once a starting
+       location has been chosen. Falls back to the address until the
+       summary arrives. */
+    function destinationMeta(loc) {
+      if (!isDestination || !summaries.originId) {
+        return '';
+      }
+      if (summaries.status === 'loading') {
+        return 'Checking fare and time\u2026';
+      }
+      if (summaries.status === 'error') {
+        return '';
+      }
+      var summary = summaries.data[String(loc.location_id)];
+      if (!summary) {
+        if (String(loc.location_id) === String(summaries.originId)) {
+          return 'Same as starting point';
+        }
+        return 'Fare and time unavailable';
+      }
+      if (!summary.has_route) {
+        return 'No recorded route from this starting point';
+      }
+      return (
+        'from \u20b1' + formatFare(summary.fare) +
+        ' \u00b7 ~' + summary.minutes + ' min'
+      );
     }
 
     function selectLocation(location) {
@@ -94,10 +139,15 @@
 
           var meta = document.createElement('small');
           meta.className = 'sg-combobox-meta';
-          meta.textContent =
-            loc.location_type +
-            ' \u00b7 ' +
-            String(loc.barangay__barangay_name || '');
+          var metaText = destinationMeta(loc);
+          if (!metaText) {
+            metaText =
+              loc.address ||
+              loc.location_type +
+                ' \u00b7 ' +
+                String(loc.barangay__barangay_name || '');
+          }
+          meta.textContent = metaText;
 
           item.appendChild(name);
           item.appendChild(meta);
@@ -128,7 +178,8 @@
     return {
       textInput: textInput,
       hiddenInput: hiddenInput,
-      selectLocation: selectLocation
+      selectLocation: selectLocation,
+      refresh: refresh
     };
   }
 
@@ -141,6 +192,129 @@
   }
   var fromBox = boxes[0];
   var toBox = boxes[1];
+
+  /* ---- Destination fare/time summaries -------------------------------
+     Once a starting location is chosen, fetch the cheapest fare and its
+     estimated time for every other active location. The destination dropdown
+     annotates each suggestion and the trip preview under the form shows
+     the selected pair's fare/time before Find My Route is submitted. */
+  var preview = document.getElementById('sg-trip-preview');
+  var previewText = document.getElementById('sg-trip-preview-text');
+
+  function selectedLocation(box) {
+    return box.hiddenInput.value
+      ? findByLocationId(box.hiddenInput.value)
+      : null;
+  }
+
+  function renderPreview() {
+    if (!preview || !previewText) {
+      return;
+    }
+    var origin = selectedLocation(fromBox);
+    var destination = selectedLocation(toBox);
+    if (!origin || !destination || !summaries.originId) {
+      preview.hidden = true;
+      previewText.textContent = '';
+      return;
+    }
+
+    if (summaries.status === 'loading') {
+      previewText.textContent =
+        'Checking fare and travel time to ' + destination.location_name +
+        '\u2026';
+      preview.hidden = false;
+      return;
+    }
+    if (summaries.status === 'error') {
+      preview.hidden = true;
+      previewText.textContent = '';
+      return;
+    }
+
+    var summary = summaries.data[String(destination.location_id)];
+    if (!summary) {
+      preview.hidden = true;
+      previewText.textContent = '';
+      return;
+    }
+
+    if (summary.has_route) {
+      previewText.textContent =
+        origin.location_name + ' \u2192 ' + destination.location_name +
+        ': from \u20b1' + formatFare(summary.fare) +
+        ' \u00b7 about ' + summary.minutes + ' min';
+    } else {
+      previewText.textContent =
+        origin.location_name + ' \u2192 ' + destination.location_name +
+        ': no recorded route yet';
+    }
+    preview.hidden = false;
+  }
+
+  function updateSummaries(originId) {
+    if (!summaryUrl || !originId) {
+      summaries.originId = null;
+      summaries.status = 'idle';
+      summaries.data = {};
+      toBox.refresh();
+      renderPreview();
+      return;
+    }
+
+    var wanted = String(originId);
+    if (summaries.originId === wanted) {
+      toBox.refresh();
+      renderPreview();
+      return;
+    }
+
+    var requestId = summaryRequest + 1;
+    summaryRequest = requestId;
+    summaries.originId = wanted;
+    summaries.status = 'loading';
+    summaries.data = {};
+    toBox.refresh();
+    renderPreview();
+
+    var query =
+      summaryUrl + (summaryUrl.indexOf('?') === -1 ? '?' : '&') +
+      'origin=' + encodeURIComponent(wanted);
+    fetch(query, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store'
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error('Destination summary request failed');
+      }
+      return response.json();
+    }).then(function (payload) {
+      if (requestId !== summaryRequest) {
+        return;
+      }
+      var next = {};
+      (payload.destinations || []).forEach(function (item) {
+        next[String(item.location_id)] = item;
+      });
+      summaries.data = next;
+      summaries.status = 'ready';
+      toBox.refresh();
+      renderPreview();
+    }).catch(function () {
+      if (requestId !== summaryRequest) {
+        return;
+      }
+      summaries.data = {};
+      summaries.status = 'error';
+      toBox.refresh();
+      renderPreview();
+    });
+  }
+
+  document.addEventListener('sg:selection', function (event) {
+    updateSummaries(event.detail && event.detail.origin);
+  });
 
   /* Live GPS shortcut: live-gps.js finds the nearest recorded place and
      announces it here so the existing combobox state stays authoritative. */

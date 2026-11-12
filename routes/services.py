@@ -14,10 +14,12 @@ locations.latitude / locations.longitude). Nothing is invented:
 """
 from collections import deque
 from decimal import Decimal
+from math import asin, cos, radians, sin, sqrt
 
 from django.db.models import Count
 
 from .models import (
+    BARANGAY_LOCATION_TYPE,
     Location,
     Route,
     RouteFare,
@@ -43,6 +45,45 @@ LEG_COLORS = ('#1c7ed6', '#0ca678', '#e8590c')
 # the "no markers to fit" default view, never to fake coordinates.
 KABANKALAN_CENTER = (9.9926, 122.8135)
 FALLBACK_ZOOM = 12
+
+EARTH_RADIUS_KM = 6371.0088
+
+
+def _haversine_km(lat1, lng1, lat2, lng2):
+    """Great-circle distance between two WGS 84 points, in kilometres."""
+    lat1, lng1, lat2, lng2 = (
+        radians(float(lat1)), radians(float(lng1)),
+        radians(float(lat2)), radians(float(lng2)),
+    )
+    d_lat = lat2 - lat1
+    d_lng = lng2 - lng1
+    a = (
+        sin(d_lat / 2) * sin(d_lat / 2)
+        + cos(lat1) * cos(lat2) * sin(d_lng / 2) * sin(d_lng / 2)
+    )
+    return 2 * EARTH_RADIUS_KM * asin(sqrt(a))
+
+
+def _distance_km_for_stops(stops):
+    """Distance along an ordered list of stop dicts with ``location`` keys.
+
+    Missing coordinates simply skip that point; the remaining verified
+    points are still measured in order. Returns ``0.0`` when fewer than two
+    verified points exist (never guesses a distance).
+    """
+    distance = 0.0
+    previous = None
+    for entry in stops:
+        location = entry.get('location')
+        coordinate = _coord(location)
+        if coordinate is None:
+            continue
+        if previous is not None:
+            distance += _haversine_km(
+                previous[0], previous[1], coordinate[0], coordinate[1],
+            )
+        previous = coordinate
+    return round(distance, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +173,7 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
         lm for lm in landmarks.get(route_id, [])
         if lm.location_id in segment_locations
     ]
+    distance_km = _distance_km_for_stops(segment)
 
     return {
         'route': routes[route_id],
@@ -139,6 +181,7 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
         'board_at': start['name'],
         'alight_at': end['name'],
         'minutes': minutes,
+        'distance_km': distance_km,
         'fare': fare_record.total_estimated_fare if fare_record else Decimal('0.00'),
         'fare_record': fare_record,
         'stops': [
@@ -308,6 +351,7 @@ def _journey_map_points(origin, destination, legs, transfers, locations_by_id):
             'board_at': leg['board_at'],
             'alight_at': leg['alight_at'],
             'minutes': leg['minutes'],
+            'distance_km': leg.get('distance_km', 0.0),
             'fare': float(leg['fare']),
             'stops': stops,
         })
@@ -363,7 +407,7 @@ def _journey_map_points(origin, destination, legs, transfers, locations_by_id):
 
 
 def _build_journey_map(origin, destination, legs, transfers, locations_by_id,
-                       total_time=None):
+                       total_time=None, total_distance=None):
     """Full map payload for one journey option."""
     geometry = _journey_map_points(
         origin, destination, legs, transfers, locations_by_id,
@@ -379,17 +423,18 @@ def _build_journey_map(origin, destination, legs, transfers, locations_by_id,
         'journey_available': True,
         'rides': geometry['rides'],
         'total_time': total_time,
+        'total_distance_km': total_distance,
         'legs': geometry['legs'],
         'transfer_points': geometry['transfer_points'],
         'landmarks': geometry['landmarks'],
         'unverified_names': geometry['unverified_names'],
         'has_markers': geometry['has_markers'],
-        # front end tiles/services note (no API keys involved)
-        'base_map': 'Leaflet with OpenStreetMap tiles',
+        'base_map': 'Google Maps JavaScript API (Leaflet fallback available)',
         'road_path_service': (
-            'Road path geometry is fetched from the free OSRM demo server '
-            '(OpenStreetMap data). When unavailable the stops are shown '
-            'with an approximate connection.'
+            'Google Maps DirectionsService follows the recorded stops as '
+            'waypoints. If Directions is unavailable the client falls back '
+            'to the free OSRM demo server and finally to an approximate '
+            'dashed connection.'
         ),
     }
 
@@ -411,16 +456,19 @@ def locations_map(origin, destination):
         'destination': _endpoint_dict(destination),
         'journey_available': False,
         'rides': 0,
+        'total_time': None,
+        'total_distance_km': 0,
         'legs': [],
         'transfer_points': [],
         'landmarks': [],
         'unverified_names': geometry['unverified_names'],
         'has_markers': geometry['has_markers'],
-        'base_map': 'Leaflet with OpenStreetMap tiles',
+        'base_map': 'Google Maps JavaScript API (Leaflet fallback available)',
     }
 
 
-def _finalize(raw_journey, origin, destination, locations_by_id):
+def _finalize(raw_journey, origin, destination, locations_by_id,
+              include_map=True):
     legs = raw_journey['legs']
     # The frontier search can append the transfer that created the current
     # state once more when its turn to complete the journey comes round;
@@ -445,6 +493,12 @@ def _finalize(raw_journey, origin, destination, locations_by_id):
     ride_time = sum(leg['minutes'] for leg in legs)
     transfer_time = sum(t['time'] for t in transfers)
     total_time = ride_time + transfer_time
+    total_distance = round(
+        sum(leg.get('distance_km', 0.0) for leg in legs), 2,
+    )
+    transport_names = sorted({
+        leg['route'].transport_type.transport_name for leg in legs
+    })
 
     return {
         'legs': legs,
@@ -456,14 +510,19 @@ def _finalize(raw_journey, origin, destination, locations_by_id):
         'ride_time': ride_time,
         'transfer_time': transfer_time,
         'total_time': total_time,
+        'total_distance_km': total_distance,
+        'transport_names': transport_names,
         'origin': origin,
         'destination': destination,
         'steps': _build_steps(
             origin.location_name, destination.location_name, legs, transfers,
         ),
-        'map': _build_journey_map(
-            origin, destination, legs, transfers, locations_by_id,
-            total_time=total_time,
+        'map': (
+            _build_journey_map(
+                origin, destination, legs, transfers, locations_by_id,
+                total_time=total_time, total_distance=total_distance,
+            )
+            if include_map else None
         ),
     }
 
@@ -471,18 +530,23 @@ def _finalize(raw_journey, origin, destination, locations_by_id):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def find_journeys(origin_id, destination_id, origin=None, destination=None):
+def find_journeys(origin_id, destination_id, origin=None, destination=None,
+                  network=None, include_map=True):
     """Return every journey the database supports for this pair.
 
     Direct rides are found first, then multi-ride journeys are discovered by
     following ``route_transfers`` rows (up to MAX_LEGS rides).
+
+    ``network`` may be a context returned by ``_load_network()`` so repeated
+    searches reuse the same in-memory indexes. ``include_map=False`` skips
+    the heavier map payload when only fare/time summaries are needed.
     """
     if origin is None:
         origin = Location.objects.get(pk=origin_id)
     if destination is None:
         destination = Location.objects.get(pk=destination_id)
 
-    ctx = _load_network()
+    ctx = network if network is not None else _load_network()
     routes, stops_by_route, order_index, transfers, fares, landmarks, \
         locations_by_id = ctx
 
@@ -497,7 +561,12 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None):
         if key in seen:
             return
         seen.add(key)
-        journeys.append(_finalize(raw, origin, destination, locations_by_id))
+        journeys.append(
+            _finalize(
+                raw, origin, destination, locations_by_id,
+                include_map=include_map,
+            )
+        )
 
     # 1) Direct rides: origin appears before destination on the same route.
     for route_id in routes:
@@ -621,24 +690,93 @@ def sort_journeys(journeys, sort='fare'):
     return sorted(journeys, key=key)
 
 
+def destination_summaries(origin_id, origin=None):
+    """Best fare/time from a starting location to every other active place.
+
+    One entry is returned per active location except the origin, so the
+    search form can show a destination's fare and estimated travel time
+    before the commuter submits it. ``fare`` and ``minutes`` describe the
+    cheapest journey; ``fastest_minutes`` reports the quickest option when
+    a different journey is faster.
+    """
+    if origin is None:
+        origin = Location.objects.get(pk=origin_id)
+
+    # Load the active network once and reuse it for every destination search
+    # instead of rebuilding the indexes per pair. Barangays, terminals,
+    # stops, schools and landmarks are all valid destinations now.
+    network = _load_network()
+    destinations = (
+        Location.objects.filter(status='active')
+        .exclude(pk=origin_id)
+        .select_related('barangay')
+        .order_by('location_type', 'location_name')
+    )
+
+    summaries = []
+    for destination in destinations:
+        journeys = find_journeys(
+            origin_id, destination.location_id,
+            origin=origin, destination=destination,
+            network=network, include_map=False,
+        )
+        if not journeys:
+            summaries.append({
+                'location_id': destination.location_id,
+                'location_name': destination.location_name,
+                'has_route': False,
+                'fare': None,
+                'minutes': None,
+                'fastest_minutes': None,
+                'transfers': None,
+            })
+            continue
+
+        cheapest = min(journeys, key=SORT_KEYS['fare'])
+        fastest = min(journeys, key=SORT_KEYS['time'])
+        summaries.append({
+            'location_id': destination.location_id,
+            'location_name': destination.location_name,
+            'has_route': True,
+            'fare': float(cheapest['total_fare']),
+            'minutes': cheapest['total_time'],
+            'fastest_minutes': fastest['total_time'],
+            'transfers': cheapest['transfer_count'],
+        })
+
+    return summaries
+
+
 # ---------------------------------------------------------------------------
 # Helpers for the search page
 # ---------------------------------------------------------------------------
 def location_choices():
-    """All active locations for the From/To dropdowns."""
+    """Every active location offered in the From/To comboboxes.
+
+    The original 32 barangays remain available, and terminals, stops,
+    schools, markets and landmarks are selectable too because the route
+    engine can board/alight at any recorded stop. This is what makes the
+    Google Maps journey directions useful for the actual network records.
+    """
     return list(
         Location.objects.filter(status='active')
         .select_related('barangay')
-        .order_by('location_name')
+        .order_by('location_type', 'location_name')
         .values(
             'location_id', 'location_name', 'location_type', 'address',
-            'barangay__barangay_name',
+            'barangay__barangay_name', 'latitude', 'longitude',
         )
     )
 
 
 def map_locations():
-    """Every recorded location that can be pinned on the Kabankalan map."""
+    """Every recorded location that can be pinned on the Kabankalan map.
+
+    Transport modes and route codes are joined from ``route_stops`` ->
+    ``routes`` -> ``transportation_types`` so the Google/Leaflet markers can
+    show which jeepney, bus, van or tricycle routes serve each place. All of
+    it is database driven; nothing about the markers is hard-coded.
+    """
     rows = list(
         Location.objects.exclude(latitude__isnull=True)
         .exclude(longitude__isnull=True)
@@ -650,19 +788,106 @@ def map_locations():
             'barangay__barangay_name',
         )
     )
+    by_id = {row['location_id']: row for row in rows}
     for row in rows:
         row['latitude'] = float(row['latitude'])
         row['longitude'] = float(row['longitude'])
+        row['transport_types'] = []
+        row['route_codes'] = []
+
+    if by_id:
+        stop_rows = (
+            RouteStop.objects.filter(
+                location_id__in=by_id.keys(),
+                route__status='active',
+            )
+            .select_related('route__transport_type')
+            .order_by('route__route_code')
+        )
+        for stop in stop_rows:
+            row = by_id.get(stop.location_id)
+            if row is None:
+                continue
+            mode = stop.route.transport_type.transport_name
+            if mode not in row['transport_types']:
+                row['transport_types'].append(mode)
+            code = stop.route.route_code
+            if code not in row['route_codes']:
+                row['route_codes'].append(code)
+
+    for row in rows:
+        row['transport_types'].sort(key=str.lower)
+        row['route_codes'].sort()
     return rows
 
 
+def route_distance_km(stops):
+    """Public helper: distance for a list of ``RouteStop`` rows."""
+    return _distance_km_for_stops([
+        {'location': stop.location} for stop in stops
+    ])
+
+
+def transport_options():
+    """Every active route with its mode, fare, distance and endpoints.
+
+    Used by the "Available transportation options" panel on the search page
+    so commuters can browse the complete network before searching, and so
+    the Google Maps markers and route directions all come from one source.
+    """
+    routes = (
+        Route.objects.filter(status='active')
+        .select_related('transport_type', 'origin', 'destination')
+        .prefetch_related('stops__location', 'fares__fare_type')
+        .order_by('transport_type__transport_name', 'route_code')
+    )
+
+    options = []
+    for route in routes:
+        stops = sorted(route.stops.all(), key=lambda stop: stop.stop_order)
+        regular_fare = None
+        for fare in sorted(
+            (f for f in route.fares.all()
+             if f.status == RouteFare.STATUS_ACTIVE
+             and f.fare_type_id == REGULAR_FARE_TYPE_ID),
+            key=lambda fare: fare.effective_date,
+        ):
+            regular_fare = fare
+
+        distance = route_distance_km(stops)
+        options.append({
+            'route_id': route.route_id,
+            'route_code': route.route_code,
+            'route_name': route.route_name,
+            'transport_name': route.transport_type.transport_name,
+            'transport_key': route.transport_type.transport_name.lower(),
+            'origin_name': route.origin.location_name,
+            'destination_name': route.destination.location_name,
+            'boarding_point': (
+                stops[0].location.location_name if stops
+                else route.origin.location_name
+            ),
+            'dropoff_point': (
+                stops[-1].location.location_name if stops
+                else route.destination.location_name
+            ),
+            'minutes': route.estimated_travel_time,
+            'stops_count': len(stops),
+            'distance_km': distance,
+            'fare': regular_fare.total_estimated_fare if regular_fare else None,
+        })
+    return options
+
+
 def popular_destinations(limit=6):
-    """Frequently searched destinations, with route-based fallback."""
+    """Frequently searched barangays, with route-based fallback."""
     result = []
     seen = set()
 
     rows = (
-        SearchHistory.objects.values('destination_id')
+        SearchHistory.objects.filter(
+            destination__location_type=BARANGAY_LOCATION_TYPE,
+        ).values('destination_id')
         .annotate(hits=Count('search_id'))
         .order_by('-hits', 'destination_id')[:limit * 2]
     )
@@ -670,7 +895,8 @@ def popular_destinations(limit=6):
     locations = {
         loc.pk: loc
         for loc in Location.objects.filter(
-            pk__in=candidates, status='active'
+            pk__in=candidates, status='active',
+            location_type=BARANGAY_LOCATION_TYPE,
         ).select_related('barangay')
     }
     for row in rows:
@@ -680,14 +906,16 @@ def popular_destinations(limit=6):
             result.append(location)
 
     if len(result) < limit:
-        destination_ids = Route.objects.filter(status='active').values_list(
-            'destination_id', flat=True
-        )
+        destination_ids = Route.objects.filter(
+            status='active',
+            destination__location_type=BARANGAY_LOCATION_TYPE,
+        ).values_list('destination_id', flat=True)
         for location_id in destination_ids:
             if location_id in seen:
                 continue
             location = Location.objects.filter(
-                pk=location_id, status='active'
+                pk=location_id, status='active',
+                location_type=BARANGAY_LOCATION_TYPE,
             ).select_related('barangay').first()
             if location:
                 seen.add(location.pk)

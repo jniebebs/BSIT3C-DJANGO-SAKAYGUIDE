@@ -97,7 +97,7 @@
     button.classList.toggle('btn-outline-primary', !active);
     var label = button.querySelector('[data-gps-toggle-label]');
     if (label) {
-      label.textContent = active ? 'Stop GPS' : 'Live GPS';
+      label.textContent = active ? 'Stop GPS' : 'My Current Location';
     }
   }
 

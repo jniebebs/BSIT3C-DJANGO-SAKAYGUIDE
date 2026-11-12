@@ -10,10 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv(path):
+    """Load KEY=VALUE pairs from a local .env file without extra packages.
+
+    Real environment variables always win, so production servers can keep
+    using their process manager. The file is intentionally ignored by Git;
+    see GOOGLE_MAPS_SETUP.md for the Google Maps key instructions.
+    """
+    try:
+        lines = path.read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        if key.startswith('export '):
+            key = key[7:].strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
+_load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -80,8 +108,6 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 #
 # Credentials come from environment variables so they are never hard-coded;
 # the defaults keep local XAMPP development working out of the box.
-
-import os  # noqa: E402
 
 _DB_USER = os.environ.get('DB_USER', 'root')
 _DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
@@ -154,6 +180,20 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Google Maps
+# ---------------------------------------------------------------------------
+# Browser key used by the Maps JavaScript API + DirectionsService. It is not a
+# secret in the server sense (Google Maps JavaScript keys are delivered to the
+# browser), so restrict it in Google Cloud instead:
+#   * Application restrictions: HTTP referrers (localhost + your real domain)
+#   * API restrictions: Maps JavaScript API + Directions API
+# The key is read from .env or the process environment, never hard-coded.
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', '').strip()
+GOOGLE_MAPS_LANGUAGE = os.environ.get('GOOGLE_MAPS_LANGUAGE', 'en')
+GOOGLE_MAPS_REGION = os.environ.get('GOOGLE_MAPS_REGION', 'PH')
 
 LOGIN_REDIRECT_URL = '/home/'
 LOGOUT_REDIRECT_URL = '/'

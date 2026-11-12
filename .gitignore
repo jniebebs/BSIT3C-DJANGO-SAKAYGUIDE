@@ -1,0 +1,15 @@
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python bytecode and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Django local artefacts
+db.sqlite3
+staticfiles/
+*.log

@@ -16,9 +16,8 @@
 -- NOTES
 --   * Safe to re-run: the unique key (barangay_id, location_name,
 --     location_type) makes the INSERT update the existing row instead.
---   * The official barangay names keep the "(Poblacion)" suffix for
---     Barangays 1-9; the location labels use the shorter names shown
---     in the Find My Route list.
+--   * Barangays 1-9 use the short names Barangay 1 ... Barangay 9 in
+--     both the barangays table and the Find My Route location list.
 -- =====================================================================
 
 USE sakayguide_db;
@@ -259,7 +258,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 1', 'barangay', 'Barangay 1 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11523836, October 2026).', 'active', 9.9986187, 122.8151670
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 1 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 1'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -274,7 +273,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 2', 'barangay', 'Barangay 2 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11523837, October 2026).', 'active', 9.9955150, 122.8131258
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 2 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 2'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -289,7 +288,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 3', 'barangay', 'Barangay 3 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11523838, October 2026).', 'active', 9.9928708, 122.8138232
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 3 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 3'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -304,7 +303,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 4', 'barangay', 'Barangay 4 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11523839, October 2026).', 'active', 9.9896851, 122.8176346
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 4 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 4'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -319,7 +318,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 5', 'barangay', 'Barangay 5 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11524944, October 2026).', 'active', 9.9912740, 122.8121214
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 5 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 5'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -334,7 +333,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 6', 'barangay', 'Barangay 6 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11524945, October 2026).', 'active', 9.9906315, 122.8094084
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 6 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 6'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -349,7 +348,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 7', 'barangay', 'Barangay 7 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11524946, October 2026).', 'active', 9.9891780, 122.8125304
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 7 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 7'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -364,7 +363,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 8', 'barangay', 'Barangay 8 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11524947, October 2026).', 'active', 9.9873764, 122.8144643
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 8 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 8'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),
@@ -379,7 +378,7 @@ INSERT INTO locations
 SELECT b.barangay_id, 'Barangay 9', 'barangay', 'Barangay 9 (Poblacion), Kabankalan City',
        'Barangay location for the Find My Route search. Map position is the OpenStreetMap barangay boundary centre (OSM relation 11524948, October 2026).', 'active', 9.9850994, 122.8193244
 FROM barangays b
-WHERE b.barangay_name = 'Barangay 9 (Poblacion)'
+WHERE b.barangay_name = 'Barangay 9'
 ON DUPLICATE KEY UPDATE
   address = VALUES(address),
   description = VALUES(description),

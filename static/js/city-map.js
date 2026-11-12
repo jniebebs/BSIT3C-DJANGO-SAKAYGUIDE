@@ -198,6 +198,14 @@
     }
   }
 
+  /* Exposed so google-maps.js can hand the page back to Leaflet if the
+     Google Maps JavaScript API cannot load. */
+  window.SakayLeafletCityMap = { init: init };
+
+  if (window.SAKAY_MAP_ENGINE === 'google') {
+    return;
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

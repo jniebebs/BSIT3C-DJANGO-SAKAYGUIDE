@@ -178,8 +178,7 @@ Route coverage, stops, travel times and the lowest active fare recorded for each
             <div class="dh-chart-legend">
               {% for mode in stats.transport_breakdown %}
               <div class="dh-chart-legend-row">
-                <span class="dh-chart-swatch"
-                      style="--dh-swatch: {% if forloop.counter == 2 %}#22c55e{% elif forloop.counter == 3 %}#f59e0b{% elif forloop.counter == 4 %}#06b6d4{% elif forloop.counter == 5 %}#ec4899{% elif forloop.counter == 6 %}#8b5cf6{% else %}#6366f1{% endif %};"></span>
+                <span class="dh-chart-swatch"></span>
                 <span class="text-truncate">{{ mode.name }}</span>
                 <span class="dh-chart-legend-count">{{ mode.count }}</span>
               </div>

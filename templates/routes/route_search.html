@@ -34,8 +34,53 @@
   <div class="card mb-3">
     <div class="card-header">
       <div>
-        <h3 class="card-title mb-0">Popular Destinations</h3>
-        <div class="card-subtitle text-muted">Frequently searched places in Kabankalan City</div>
+        <h3 class="card-title mb-0">Available Transportation Options</h3>
+        <div class="card-subtitle text-muted">
+          {{ transport_options|length }} active route{{ transport_options|length|pluralize }}
+          recorded in the SakayGuide database &mdash; jeepney, bus, van and
+          tricycle services with their fare, distance and travel time.
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-2">
+        {% for option in transport_options %}
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="sg-transport-option">
+            <div class="sg-transport-option-top">
+              <span class="sg-gm-mode sg-mode-{{ option.transport_key }}">{{ option.transport_name }}</span>
+              <span class="badge text-bg-blue">{{ option.route_code }}</span>
+              {% if option.fare is not None %}
+              <span class="badge text-bg-green ms-auto">&#8369;{{ option.fare }}</span>
+              {% endif %}
+            </div>
+            <div class="sg-transport-option-name">{{ option.route_name }}</div>
+            <div class="sg-transport-option-route">
+              Board: <strong>{{ option.boarding_point }}</strong><br>
+              Drop-off: <strong>{{ option.dropoff_point }}</strong>
+            </div>
+            <div class="sg-transport-option-meta">
+              {% if option.minutes %}<strong>{{ option.minutes }} min</strong> &middot;{% endif %}
+              <strong>{{ option.distance_km }} km</strong> &middot;
+              {{ option.stops_count }} recorded stop{{ option.stops_count|pluralize }}
+              {% if option.fare is None %}&middot; fare not recorded{% endif %}
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+          <span class="text-muted">No active transportation routes are recorded yet.</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title mb-0">Popular Barangays</h3>
+        <div class="card-subtitle text-muted">Frequently searched barangays in Kabankalan City</div>
       </div>
     </div>
     <div class="card-body d-flex flex-wrap gap-2">
@@ -61,7 +106,10 @@
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 w-100">
         <div>
           <h3 class="card-title mb-0">Kabankalan City Live Map</h3>
-          <div class="card-subtitle text-muted">All 32 barangays and recorded places in Kabankalan City are pinned</div>
+          <div class="card-subtitle text-muted">
+            All {{ map_locations|length }} recorded barangays, terminals,
+            stops, schools, markets and landmarks are pinned
+          </div>
         </div>
         <button type="button" class="btn btn-outline-primary btn-sm"
                 id="sg-city-map-toggle" aria-expanded="false"
@@ -74,20 +122,21 @@
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <button type="button" class="btn btn-outline-primary btn-sm"
                 data-gps-toggle aria-pressed="false"
-                title="Show your live device position on the map">
-          <i class="ti ti-current-location me-1"></i><span data-gps-toggle-label>Live GPS</span>
+                title="Show and follow your live device position on the map">
+          <i class="ti ti-current-location me-1"></i><span data-gps-toggle-label>My Current Location</span>
         </button>
         <span class="small sg-gps-status" data-gps-status
               role="status" aria-live="polite" hidden></span>
       </div>
       <div class="sg-map" id="sg-search-map"></div>
-      <div class="text-muted small mt-2">
+      <div class="text-muted small mt-2" id="sg-map-attribution">
         <i class="ti ti-map-pin me-1"></i>All {{ map_locations|length }}
         recorded locations in Kabankalan City are pinned - click a pin for
-        its name, type and barangay. Purple pins are barangays, slate pins
-        are places, and grey pins are inactive places.
-        (Base map &copy; OpenStreetMap contributors - free, no API key.)
+        its name, type, barangay and the routes recorded there. Purple pins
+        are barangays, blue pins are places, and grey pins are inactive
+        places.
       </div>
+      <div class="sg-map-engine-note" id="sg-map-engine-note" hidden></div>
     </div>
   </div>
 
@@ -152,8 +201,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'libs/leaflet/leaflet.js' %}"></script>
-<script src="{% static 'js/live-gps.js' %}?v=1"></script>
-<script src="{% static 'js/city-map.js' %}?v=8"></script>
-<script src="{% static 'js/route-search.js' %}?v=4"></script>
+{% include "routes/_map_assets.html" with map_page="search" %}
+<script src="{% static 'js/route-search.js' %}?v=7"></script>
 {% endblock %}

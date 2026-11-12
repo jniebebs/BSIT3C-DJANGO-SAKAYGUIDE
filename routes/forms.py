@@ -28,8 +28,11 @@ class RouteSearchForm(forms.Form):
             )
 
         for field, value in (('origin', origin_id), ('destination', destination_id)):
+            # Barangays, terminals, stops, schools, markets and landmarks can
+            # all be used as an endpoint. Only the *route engine* decides
+            # whether a real recorded journey exists between them.
             if value and not Location.objects.filter(
-                pk=value, status='active'
+                pk=value, status='active',
             ).exists():
                 self.add_error(field, 'Please choose a location from the list.')
 
@@ -55,7 +58,7 @@ class SaveRouteForm(forms.Form):
 
         for field, value in (('origin', origin_id), ('destination', destination_id)):
             if value and not Location.objects.filter(
-                pk=value, status='active'
+                pk=value, status='active',
             ).exists():
                 self.add_error(field, 'Unknown location selected.')
 

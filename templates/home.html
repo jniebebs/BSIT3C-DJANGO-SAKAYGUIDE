@@ -1,7 +1,7 @@
 {% extends "theme/base.html" %}
 {% load static %}
 {% block extra_css %}
-<link href="{% static 'css/dashboard.css' %}?v=2" rel="stylesheet"/>
+<link href="{% static 'css/dashboard.css' %}?v=4" rel="stylesheet"/>
 {% endblock %}
 
 {% block content %}
@@ -9,10 +9,37 @@
 
   {# ---------- HERO ---------- #}
   <section class="dh-hero mb-3" aria-label="Dashboard welcome">
+    {# Decorative transit-line motif, hidden from assistive tech. #}
+    <svg class="dh-hero-art" viewBox="0 0 420 260" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="dhHeroLine" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="currentColor" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="currentColor" stop-opacity="0.08"/>
+        </linearGradient>
+      </defs>
+      <path d="M10 210 L90 210 L120 150 L210 150 L245 95 L330 95 L365 45 L410 45"
+            fill="none" stroke="url(#dhHeroLine)" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M40 250 L40 180 L160 180 L195 120 L300 120 L335 62"
+            fill="none" stroke="currentColor" stroke-opacity="0.14"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="90" cy="210" r="4.5" fill="currentColor" fill-opacity="0.7"/>
+      <circle cx="210" cy="150" r="4.5" fill="currentColor" fill-opacity="0.55"/>
+      <circle cx="330" cy="95" r="4.5" fill="currentColor" fill-opacity="0.45"/>
+      <circle cx="365" cy="45" r="6" fill="currentColor" fill-opacity="0.85"/>
+    </svg>
+
     <div class="dh-hero-inner d-flex flex-wrap align-items-start justify-content-between gap-4">
       <div class="flex-grow-1" style="min-width: 16rem;">
-        <div class="dh-hero-pretitle">SakayGuide control center &middot; {% now "l, F j, Y" %}</div>
-        <h1 class="dh-hero-title">Welcome back, {{ user.first_name|default:user.username }}</h1>
+        <div class="dh-hero-pretitle">
+          <i class="fa-solid fa-compass"></i>
+          SakayGuide control center &middot; {% now "l, F j, Y" %}
+        </div>
+        <h1 class="dh-hero-title">
+          {% now "H" as hour %}
+          {% if hour < 12 %}Good morning{% elif hour < 18 %}Good afternoon{% else %}Good evening{% endif %},
+          {{ user.first_name|default:user.username }}
+        </h1>
         <p class="dh-hero-sub mb-0">
           Here is the latest picture of Kabankalan City&rsquo;s transit network,
           commuter activity and map coverage.
@@ -32,6 +59,12 @@
             <i class="fa-solid fa-user-shield"></i>
             {{ user.is_superuser|yesno:"Administrator,Instructor" }}
           </span>
+          {% if stats.network_health is not None %}
+          <span class="dh-hero-meta-badge">
+            <i class="fa-solid fa-heart-pulse"></i>
+            {{ stats.network_health }}% network health
+          </span>
+          {% endif %}
         </div>
       </div>
 
@@ -76,6 +109,37 @@
     </div>
   </div>
 
+  {# ---------- DASHBOARD TOOLBAR ---------- #}
+  <div class="dh-toolbar mb-3">
+    <div class="dh-toolbar-group">
+      <button type="button" class="btn btn-sm dh-refresh-btn" id="dh-refresh-toggle"
+              aria-pressed="false" title="Reload the dashboard automatically every 60 seconds">
+        <i class="fa-solid fa-rotate-right dh-refresh-icon"></i>
+        <span class="dh-refresh-label">Auto refresh</span>
+      </button>
+      <button type="button" class="btn btn-sm dh-refresh-btn" id="dh-refresh-now"
+              title="Reload the dashboard now">
+        <i class="fa-solid fa-arrows-rotate"></i>
+        <span class="d-none d-sm-inline">Refresh</span>
+      </button>
+      <span class="dh-updated" id="dh-updated-at"
+            data-generated-at="{{ generated_at|date:'c' }}">
+        <i class="fa-regular fa-clock"></i>
+        <span class="dh-updated-text">Updated just now</span>
+      </span>
+    </div>
+
+    <div class="dh-toolbar-group">
+      <span class="dh-live-pill" id="dh-live-pill" hidden>
+        <span class="dh-live-dot"></span> Live
+      </span>
+      <span class="dh-toolbar-label">Network health</span>
+      <span class="dh-health-pill {% if stats.network_health >= 80 %}is-good{% elif stats.network_health >= 50 %}is-warn{% else %}is-poor{% endif %}">
+        {{ stats.network_health }}%
+      </span>
+    </div>
+  </div>
+
   {# ---------- KPI CARDS ---------- #}
   <div class="row row-deck g-3 mb-3">
     <div class="col-sm-6 col-xl-3">
@@ -86,7 +150,7 @@
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
               <div class="stat-label">Active routes</div>
-              <div class="stat-value mt-2">{{ stats.active_routes }}</div>
+              <div class="stat-value mt-2" data-count-to="{{ stats.active_routes }}">{{ stats.active_routes }}</div>
             </div>
             <span class="stat-card-icon"><i class="fa-solid fa-route"></i></span>
           </div>
@@ -107,7 +171,7 @@
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
               <div class="stat-label">Active locations</div>
-              <div class="stat-value mt-2">{{ stats.active_locations }}</div>
+              <div class="stat-value mt-2" data-count-to="{{ stats.active_locations }}">{{ stats.active_locations }}</div>
             </div>
             <span class="stat-card-icon"><i class="fa-solid fa-location-dot"></i></span>
           </div>
@@ -128,7 +192,7 @@
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
               <div class="stat-label">Transfer links</div>
-              <div class="stat-value mt-2">{{ stats.transfers }}</div>
+              <div class="stat-value mt-2" data-count-to="{{ stats.transfers }}">{{ stats.transfers }}</div>
             </div>
             <span class="stat-card-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></span>
           </div>
@@ -149,7 +213,7 @@
           <div class="d-flex align-items-start justify-content-between gap-3">
             <div>
               <div class="stat-label">Commuters</div>
-              <div class="stat-value mt-2">{{ stats.commuters }}</div>
+              <div class="stat-value mt-2" data-count-to="{{ stats.commuters }}">{{ stats.commuters }}</div>
             </div>
             <span class="stat-card-icon"><i class="fa-solid fa-users"></i></span>
           </div>
@@ -163,8 +227,104 @@
     </div>
   </div>
 
-  {# ---------- MONITORING SHORTCUTS + COVERAGE ---------- #}
-  <div class="row row-deck g-3">
+  {# ---------- SEARCH ACTIVITY + TRANSPORT MODES ---------- #}
+  <div class="row row-deck g-3 mb-3">
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header">
+          <div class="dh-panel-title">
+            <span class="dh-panel-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <div>
+              <h3 class="card-title mb-0">Search activity</h3>
+              <div class="card-subtitle text-muted">
+                Route searches recorded over the last 7 days
+                {% if stats.busiest_day %}
+                  &middot; busiest on {{ stats.busiest_day.label }} ({{ stats.busiest_day.count }})
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="ms-auto text-end">
+            <div class="dh-panel-headline justify-content-end">
+              <span class="h2 mb-0" data-count-to="{{ stats.search_week_total }}">{{ stats.search_week_total }}</span>
+              {% if stats.search_week_change is None %}
+                <span class="dh-trend dh-trend-neutral">
+                  <i class="fa-solid fa-arrow-trend-up"></i>New activity
+                </span>
+              {% elif stats.search_week_change > 0 %}
+                <span class="dh-trend dh-trend-up">
+                  <i class="fa-solid fa-arrow-trend-up"></i>+{{ stats.search_week_change }}%
+                </span>
+              {% elif stats.search_week_change < 0 %}
+                <span class="dh-trend dh-trend-down">
+                  <i class="fa-solid fa-arrow-trend-down"></i>{{ stats.search_week_change }}%
+                </span>
+              {% else %}
+                <span class="dh-trend dh-trend-neutral">
+                  <i class="fa-solid fa-minus"></i>0%
+                </span>
+              {% endif %}
+            </div>
+            <div class="text-muted small">
+              vs {{ stats.search_previous_week_total }} last week
+            </div>
+          </div>
+        </div>
+        <div class="card-body pt-2">
+          {{ stats.search_activity|json_script:"search-activity-data" }}
+          <div id="dashboard-search-chart" style="min-height: 268px;" role="img"
+               aria-label="Area chart of daily route searches for the last seven days"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header">
+          <div class="dh-panel-title">
+            <span class="dh-panel-icon" style="--dh-panel-color: #22c55e;">
+              <i class="fa-solid fa-chart-pie"></i>
+            </span>
+            <div>
+              <h3 class="card-title mb-0">Transport modes</h3>
+              <div class="card-subtitle text-muted">Active routes per mode</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          {{ stats.transport_breakdown|json_script:"transport-breakdown-data" }}
+          {% if stats.transport_breakdown %}
+          <div class="row align-items-center g-3">
+            <div class="col-sm-6">
+              <div id="dashboard-mode-chart" class="dh-donut-wrap" role="img"
+                   aria-label="Donut chart showing active routes grouped by transport mode"></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="dh-chart-legend">
+                {% for mode in stats.transport_breakdown %}
+                <div class="dh-chart-legend-row">
+                  <span class="dh-chart-swatch"></span>
+                  <span class="text-truncate">{{ mode.name }}</span>
+                  <span class="dh-chart-legend-count">{{ mode.count }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div class="dh-empty">
+            <span class="dh-empty-icon"><i class="fa-solid fa-chart-pie"></i></span>
+            <div class="fw-semibold">No transport types</div>
+            <div class="small">Transport modes will appear once routes are configured.</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ---------- MONITORING SHORTCUTS + NETWORK HEALTH ---------- #}
+  <div class="row row-deck g-3 mb-3">
     <div class="col-lg-8">
       <div class="card h-100">
         <div class="card-header">
@@ -260,29 +420,62 @@
         <div class="card-header">
           <div class="dh-panel-title">
             <span class="dh-panel-icon" style="--dh-panel-color: #22c55e;">
-              <i class="fa-solid fa-map-location-dot"></i>
+              <i class="fa-solid fa-heart-pulse"></i>
             </span>
             <div>
-              <h3 class="card-title mb-0">Data coverage</h3>
-              <div class="card-subtitle text-muted">Verified map positions</div>
+              <h3 class="card-title mb-0">Network health</h3>
+              <div class="card-subtitle text-muted">Data completeness across the route network</div>
             </div>
           </div>
+          <span class="ms-auto dh-health-score {% if stats.network_health >= 80 %}is-good{% elif stats.network_health >= 50 %}is-warn{% else %}is-poor{% endif %}">
+            {{ stats.network_health }}%
+          </span>
         </div>
         <div class="card-body">
-          <div class="d-flex align-items-baseline gap-2">
-            <span class="display-6 fw-bold mb-0">{{ stats.coverage_percent }}%</span>
-            <span class="text-muted small">of active locations</span>
+          <div class="dh-health-list">
+            {% for check in stats.health_checks %}
+            <div class="dh-health-item">
+              <div class="dh-health-head">
+                <span class="dh-health-icon">
+                  <i class="fa-solid {{ check.icon }}"></i>
+                </span>
+                <span class="dh-health-label">{{ check.label }}</span>
+                <span class="dh-health-value">{{ check.percent }}%</span>
+              </div>
+              <div class="dh-health-bar">
+                <span class="dh-health-fill {% if check.percent >= 80 %}is-good{% elif check.percent >= 50 %}is-warn{% else %}is-poor{% endif %}"
+                      style="width: {{ check.percent }}%;"></span>
+              </div>
+              <div class="dh-health-detail">{{ check.detail }}</div>
+            </div>
+            {% endfor %}
           </div>
-          <div class="progress progress-sm mt-3" style="height: 7px;">
-            <div class="progress-bar bg-green" style="width: {{ stats.coverage_percent }}%;"></div>
-          </div>
-          <div class="text-muted small mt-2">
-            {{ stats.active_with_coords }} of {{ stats.active_locations }} active locations have verified coordinates.
-          </div>
+
           <div class="dh-coverage-facts mt-3">
             <div>
-              <span class="text-muted small">Barangays</span>
-              <span class="fw-semibold">{{ stats.barangays }}</span>
+              <span class="text-muted small">Avg. travel time</span>
+              <span class="fw-semibold">
+                {% if stats.avg_travel_time is not None %}
+                  {{ stats.avg_travel_time }} min
+                  {% if stats.min_travel_time is not None and stats.max_travel_time is not None %}
+                    <span class="text-muted fw-normal">
+                      ({{ stats.min_travel_time }}&ndash;{{ stats.max_travel_time }})
+                    </span>
+                  {% endif %}
+                {% else %}
+                  &mdash;
+                {% endif %}
+              </span>
+            </div>
+            <div>
+              <span class="text-muted small">Routes missing stops / fares</span>
+              <span class="fw-semibold">
+                {{ stats.routes_without_stops }} / {{ stats.routes_without_fares }}
+              </span>
+            </div>
+            <div>
+              <span class="text-muted small">Routes without transfers</span>
+              <span class="fw-semibold">{{ stats.routes_without_transfers }}</span>
             </div>
             <div>
               <span class="text-muted small">Inactive locations</span>
@@ -303,6 +496,153 @@
     </div>
   </div>
 
+  {# ---------- RECENT ACTIVITY + DEMAND ---------- #}
+  <div class="row row-deck g-3">
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header">
+          <div class="dh-panel-title">
+            <span class="dh-panel-icon" style="--dh-panel-color: #8b5cf6;">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </span>
+            <div>
+              <h3 class="card-title mb-0">Recent activity</h3>
+              <div class="card-subtitle text-muted">
+                Latest account, route, fare and location audit entries
+              </div>
+            </div>
+          </div>
+          <a href="{% url 'dashboard_activity' %}" class="ms-auto dh-panel-link">
+            View all <i class="fa-solid fa-arrow-right"></i>
+          </a>
+        </div>
+        <div class="card-body py-1">
+          {% if stats.recent_logs %}
+          <div class="dh-timeline">
+            {% for log in stats.recent_logs %}
+            <div class="dh-timeline-item">
+              <span class="dh-timeline-dot"
+                    style="--dh-log-color: {% if log.action == 'CREATE' %}#22c55e{% elif log.action == 'DEACTIVATE' %}#d63939{% elif log.action == 'UPDATE' %}#0ea5e9{% elif log.action == 'LOGIN' %}#8b5cf6{% else %}#6366f1{% endif %};">
+                <i class="fa-solid {% if log.action == 'CREATE' %}fa-plus{% elif log.action == 'DEACTIVATE' %}fa-ban{% elif log.action == 'UPDATE' %}fa-pen{% elif log.action == 'LOGIN' %}fa-right-to-bracket{% else %}fa-circle-info{% endif %}"></i>
+              </span>
+              <div class="flex-grow-1 min-w-0">
+                <div class="dh-timeline-title">
+                  <span>{{ log.action|title }}</span>
+                  <span class="text-muted fw-normal">on {{ log.table }}</span>
+                </div>
+                <div class="dh-timeline-text">{{ log.description|default:"No description recorded." }}</div>
+                <div class="dh-timeline-meta">
+                  {{ log.admin }} &middot;
+                  <span title="{{ log.created_at|date:'M j, Y H:i' }}">{{ log.created_at|timesince }} ago</span>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="dh-empty">
+            <span class="dh-empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <div class="fw-semibold">No activity recorded</div>
+            <div class="small">Audit log entries will appear here.</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header">
+          <div class="dh-panel-title">
+            <span class="dh-panel-icon" style="--dh-panel-color: #f59e0b;">
+              <i class="fa-solid fa-arrow-down-up-across-line"></i>
+            </span>
+            <div>
+              <h3 class="card-title mb-0">Top demand</h3>
+              <div class="card-subtitle text-muted">Most searched origins and destinations</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="dh-demand-tabs" role="tablist" aria-label="Demand breakdown">
+            <button type="button" class="dh-demand-tab is-active" role="tab"
+                    aria-selected="true" data-demand-tab="destinations"
+                    id="dh-tab-destinations" aria-controls="dh-panel-destinations">
+              Destinations
+            </button>
+            <button type="button" class="dh-demand-tab" role="tab"
+                    aria-selected="false" data-demand-tab="origins"
+                    id="dh-tab-origins" aria-controls="dh-panel-origins">
+              Origins
+            </button>
+          </div>
+
+          <div class="dh-demand-panel" id="dh-panel-destinations" role="tabpanel"
+               aria-labelledby="dh-tab-destinations">
+            {% if stats.top_destinations %}
+            <div class="dh-rank-list">
+              {% for destination in stats.top_destinations %}
+              <div class="dh-rank-row">
+                <span class="dh-rank-index">{{ forloop.counter }}</span>
+                <div class="dh-rank-body">
+                  <div class="d-flex align-items-center justify-content-between gap-2">
+                    <span class="dh-rank-name" title="{{ destination.name }}">{{ destination.name }}</span>
+                    <span class="dh-rank-meta text-nowrap">{{ destination.count }}</span>
+                  </div>
+                  <div class="dh-rank-meta">{{ destination.share }}% of all searches</div>
+                  <div class="dh-rank-bar">
+                    <span style="width: {{ destination.bar }}%;"></span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="dh-empty">
+              <span class="dh-empty-icon"><i class="fa-solid fa-trophy"></i></span>
+              <div class="fw-semibold">No destination data yet</div>
+              <div class="small">Popular destinations will appear after commuters search for routes.</div>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="dh-demand-panel" id="dh-panel-origins" role="tabpanel"
+               aria-labelledby="dh-tab-origins" hidden>
+            {% if stats.top_origins %}
+            <div class="dh-rank-list">
+              {% for origin in stats.top_origins %}
+              <div class="dh-rank-row">
+                <span class="dh-rank-index">{{ forloop.counter }}</span>
+                <div class="dh-rank-body">
+                  <div class="d-flex align-items-center justify-content-between gap-2">
+                    <span class="dh-rank-name" title="{{ origin.name }}">{{ origin.name }}</span>
+                    <span class="dh-rank-meta text-nowrap">{{ origin.count }}</span>
+                  </div>
+                  <div class="dh-rank-meta">{{ origin.share }}% of all searches</div>
+                  <div class="dh-rank-bar">
+                    <span style="width: {{ origin.bar }}%;"></span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="dh-empty">
+              <span class="dh-empty-icon"><i class="fa-solid fa-trophy"></i></span>
+              <div class="fw-semibold">No origin data yet</div>
+              <div class="small">Popular origins will appear after commuters search for routes.</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard.js' %}?v=4"></script>
 {% endblock %}

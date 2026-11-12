@@ -16,7 +16,17 @@ drawn map path.
       <div class="text-muted small">
         {{ journey.transfers|length }} transfer{{ journey.transfers|length|pluralize }}
         &middot; {{ journey.legs|length }} ride{{ journey.legs|length|pluralize }}
+        {% if journey.total_distance_km %}
+        &middot; {{ journey.total_distance_km }} km total
+        {% endif %}
       </div>
+      {% if journey.transport_names %}
+      <div class="d-flex flex-wrap gap-1 mt-1">
+        {% for mode in journey.transport_names %}
+        <span class="badge text-bg-secondary">{{ mode }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
     <div class="text-end">
       <div class="h3 mb-0">&#8369;{{ journey.total_fare }}</div>
@@ -41,6 +51,21 @@ drawn map path.
         {{ journey.ride_time }} min riding{% if journey.transfer_time %} + {{ journey.transfer_time }} min transfer{% endif %}
       </div>
     </div>
+    {% if journey.total_distance_km %}
+    <div class="sg-panel-summary-row">
+      <div>
+        <i class="ti ti-road me-1"></i><strong>{{ journey.total_distance_km }} km</strong>
+        <span class="text-muted small">recorded stop-to-stop distance</span>
+      </div>
+      <div class="text-muted small">
+        {% if google_maps.enabled %}
+        Google road distance appears under the map when directions load
+        {% else %}
+        Calculated from the recorded stop coordinates
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   {# ---- Each ride: type, route code/name, ordered stops, landmarks ---- #}
@@ -57,6 +82,7 @@ drawn map path.
           <span class="badge text-bg-secondary">{{ leg.route.transport_type.transport_name }}</span>
           <span class="text-muted small">
             {{ leg.minutes }} min &middot; &#8369;{{ leg.fare }}
+            {% if leg.distance_km %}&middot; {{ leg.distance_km }} km{% endif %}
           </span>
         </div>
         <div class="text-muted small mt-1">

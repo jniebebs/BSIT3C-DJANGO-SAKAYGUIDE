@@ -323,6 +323,18 @@
   font-weight: 500;
 }
 
+/* Fare/time preview for the currently selected From/To pair. */
+.sg-trip-preview {
+  display: flex;
+  align-items: center;
+  color: var(--tblr-body-color, #1e2434);
+  font-size: 0.875rem;
+}
+
+.sg-trip-preview .ti {
+  color: var(--tblr-green, #2fb344);
+}
+
 /* ---------------- Live GPS ---------------- */
 .sg-gps-use-origin {
   font-size: 0.78rem;
@@ -389,3 +401,265 @@
     animation: none;
   }
 }
+
+/* ================================================================== */
+/* Google Maps integration                                           */
+/* ================================================================== */
+
+/* The Google map is created inside the existing .sg-map box. Keep the
+   rounded border and let Google own everything below it. */
+.sg-map > div {
+  border-radius: inherit;
+}
+
+.sg-map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  color: var(--tblr-secondary, #64748b);
+  font-size: 0.875rem;
+}
+
+/* "My Current Location" live GPS overlay (DOM element on the map). */
+.sg-gmaps-gps {
+  position: absolute;
+  z-index: 9999;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.sg-gmaps-gps .sg-gps-dot {
+  width: 20px;
+  height: 20px;
+  background: #1a73e8;
+  border: 3px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(26, 115, 232, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.sg-gmaps-gps .sg-gps-dot::after {
+  border-color: rgba(26, 115, 232, 0.6);
+}
+
+/* Reset-view control pushed into the Google map controls. */
+.sg-gmaps-ctrl {
+  margin: 8px 0 0 8px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #1e2434;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.15;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.sg-gmaps-ctrl:hover {
+  background: #f6f8fb;
+}
+
+/* InfoWindow contents built from database rows. */
+.sg-gm-info {
+  max-width: 260px;
+  color: #1e2434;
+  font-family: inherit;
+  line-height: 1.35;
+}
+
+.sg-gm-info strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.1rem;
+}
+
+.sg-gm-sub {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.sg-gm-line {
+  margin-top: 0.2rem;
+  font-size: 0.76rem;
+}
+
+.sg-gm-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+}
+
+.sg-gm-mode {
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
+  background: #64748b;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.sg-mode-jeepney { background: #e8590c; }
+.sg-mode-bus { background: #1c7ed6; }
+.sg-mode-van { background: #0ca678; }
+.sg-mode-tricycle { background: #b8860b; }
+.sg-mode-other { background: #64748b; }
+
+/* Google turn-by-turn directions under the map. */
+.sg-google-directions {
+  margin-top: 0.75rem;
+}
+
+.sg-google-directions:empty {
+  display: none;
+}
+
+.sg-gdir-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sg-gdir-note {
+  color: var(--tblr-secondary, #64748b);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.sg-gdir-leg {
+  border: 1px solid var(--tblr-border-color, rgba(0, 0, 0, 0.125));
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.5rem;
+  background: color-mix(in srgb, var(--tblr-secondary, #8a94a6) 4%, transparent);
+}
+
+.sg-gdir-leg-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.sg-gdir-swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.55rem;
+  border-radius: 3px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.sg-gdir-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.sg-gdir-steps li {
+  margin-bottom: 0.25rem;
+}
+
+.sg-gdir-steps .sg-gdir-meta {
+  display: block;
+  color: var(--tblr-secondary, #8a94a6);
+  font-size: 0.72rem;
+}
+
+.sg-gdir-error {
+  color: var(--tblr-danger, #d63939);
+  font-size: 0.78rem;
+}
+
+.sg-gdir-alt-title {
+  margin-top: 0.4rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.sg-gdir-alts {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.75rem;
+  color: var(--tblr-secondary, #64748b);
+}
+
+.sg-gdir-alts li {
+  margin-bottom: 0.15rem;
+}
+
+/* Map engine / fallback note. */
+.sg-map-engine-note {
+  color: var(--tblr-secondary, #64748b);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.sg-map-engine-note.is-error {
+  color: var(--tblr-danger, #d63939);
+}
+
+/* Available transportation options on the search page. */
+.sg-transport-option {
+  height: 100%;
+  border: 1px solid var(--tblr-border-color, rgba(0, 0, 0, 0.125));
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--tblr-bg-surface, #fff);
+}
+
+.sg-transport-option-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+
+.sg-transport-option-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.sg-transport-option-route {
+  color: var(--tblr-secondary, #64748b);
+  font-size: 0.74rem;
+}
+
+.sg-transport-option-meta {
+  margin-top: 0.25rem;
+  color: var(--tblr-secondary, #64748b);
+  font-size: 0.74rem;
+}
+
+.sg-transport-option-meta strong {
+  color: var(--tblr-body-color, #1e2434);
+}
+
+/* Make sure Google's info window close button is not clipped by the card. */
+.gm-style .gm-style-iw-c {
+  border-radius: 0.45rem !important;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: hidden !important;
+}
+

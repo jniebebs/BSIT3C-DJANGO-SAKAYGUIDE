@@ -2,7 +2,7 @@
 {{ locations|json_script:"location-data" }}
 {{ map_locations|json_script:"kabankalan-locations" }}
 
-<form method="get" action="{% url 'routes:route_search' %}" id="route-search-form" class="route-search-form" novalidate>
+<form method="get" action="{% url 'routes:route_search' %}" id="route-search-form" class="route-search-form" data-summary-url="{% url 'routes:destination_summaries' %}" novalidate>
   <div class="row g-3 align-items-start">
     <div class="col-12 col-md-5">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -10,12 +10,12 @@
         <button type="button" class="btn btn-link btn-sm p-0 sg-gps-use-origin"
                 id="gps-use-origin"
                 title="Use your browser location to choose the nearest recorded starting point">
-          <i class="ti ti-current-location me-1"></i>Use my location
+          <i class="ti ti-current-location me-1"></i>My Current Location
         </button>
       </div>
       <div class="sg-combobox" data-combobox>
         <input type="text" class="form-control" id="origin-text"
-               placeholder="Search starting location..."
+               placeholder="Search starting location (barangay, terminal, stop, landmark)..."
                autocomplete="off" role="combobox" aria-expanded="false"
                aria-autocomplete="list"
                value="{% if origin %}{{ origin.location_name }}{% endif %}">
@@ -41,7 +41,7 @@
       <label class="form-label" for="destination-text">To</label>
       <div class="sg-combobox" data-combobox>
         <input type="text" class="form-control" id="destination-text"
-               placeholder="Search destination..."
+               placeholder="Search destination (barangay, terminal, stop, landmark)..."
                autocomplete="off" role="combobox" aria-expanded="false"
                aria-autocomplete="list"
                value="{% if destination %}{{ destination.location_name }}{% endif %}">
@@ -67,6 +67,10 @@
            role="status" aria-live="polite">
         <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
         <span>Searching the database for available routes&hellip;</span>
+      </div>
+      <div class="w-100 sg-trip-preview" id="sg-trip-preview" hidden
+           role="status" aria-live="polite">
+        <i class="ti ti-cash me-1"></i><span id="sg-trip-preview-text"></span>
       </div>
     </div>
   </div>

@@ -5,14 +5,66 @@
 
 .dh-dashboard {
   --dh-dashboard-gap: 1rem;
+
+  /* Semantic accents. These drive charts, rank bars and icon tints so
+     every widget shares one palette instead of picking colours ad hoc. */
+  --dh-accent-1: var(--tblr-primary);
+  --dh-accent-2: #22c55e;
+  --dh-accent-3: #f59e0b;
+  --dh-accent-4: #06b6d4;
+  --dh-accent-5: #ec4899;
+  --dh-accent-6: #8b5cf6;
+
+  --dh-success: #16a34a;
+  --dh-success-soft: rgba(34, 197, 94, 0.14);
+  --dh-warning: #d97706;
+  --dh-warning-soft: rgba(245, 158, 11, 0.16);
+  --dh-danger: #dc2626;
+  --dh-danger-soft: rgba(214, 57, 57, 0.14);
+  --dh-info: #0284c7;
+  --dh-info-soft: rgba(14, 165, 233, 0.14);
+
+  --dh-ring: color-mix(in srgb, var(--tblr-primary) 35%, transparent);
+  --dh-hairline: color-mix(in srgb, var(--tblr-body-color) 9%, transparent);
+  --dh-glass: rgba(255, 255, 255, 0.09);
+  --dh-glass-strong: rgba(255, 255, 255, 0.16);
+  --dh-glass-line: rgba(255, 255, 255, 0.18);
 }
 
 .dh-dashboard .card {
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
 
 .dh-dashboard .card:hover {
-  box-shadow: 0 18px 38px -24px rgba(23, 26, 54, 0.42);
+  box-shadow: 0 20px 42px -26px rgba(23, 26, 54, 0.45);
+}
+
+/* Panels get a hairline accent so the eye can separate them quickly. */
+.dh-dashboard .card {
+  position: relative;
+  /* `clip` contains the accent bar without turning the card into a
+     scroll container, which would break the sticky table headers. */
+  overflow: hidden;
+  overflow: clip;
+}
+
+.dh-dashboard .card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tblr-primary) 70%, transparent) 0%,
+    color-mix(in srgb, var(--dh-accent-4) 55%, transparent) 45%,
+    transparent 100%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.dh-dashboard .dh-stat-card::after {
+  display: none;
 }
 
 /* Detail pages ----------------------------------------------------- */
@@ -187,7 +239,295 @@
   font-weight: 600;
 }
 
+/* Hero ------------------------------------------------------------- */
+/* The hero bleeds the active theme colour into a deep navy canvas so
+   the header always feels like part of the chosen colour scheme. */
+.dh-dashboard .dh-hero {
+  isolation: isolate;
+  border-radius: var(--tblr-border-radius-xl);
+  background:
+    radial-gradient(70% 120% at 88% -10%,
+      color-mix(in srgb, var(--tblr-primary) 55%, transparent) 0%,
+      transparent 58%),
+    radial-gradient(60% 100% at 8% 110%,
+      color-mix(in srgb, var(--dh-accent-4) 30%, transparent) 0%,
+      transparent 60%),
+    linear-gradient(125deg, #12142e 0%, #1a1d47 46%, #232861 100%);
+  box-shadow:
+    0 26px 50px -26px rgba(18, 20, 46, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Blueprint texture for depth without adding visual noise. */
+.dh-dashboard .dh-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
+  pointer-events: none;
+}
+
+/* Drifting colour orbs. */
+.dh-dashboard .dh-hero::after {
+  content: "";
+  position: absolute;
+  right: -5rem;
+  top: -7rem;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--dh-accent-3) 26%, transparent) 0%,
+    transparent 66%
+  );
+  animation: dh-drift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes dh-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2.5rem, 1.75rem, 0) scale(1.12);
+  }
+}
+
+/* Decorative transit-line motif behind the hero copy. */
+.dh-dashboard .dh-hero-art {
+  position: absolute;
+  z-index: 0;
+  right: -1.5rem;
+  top: 50%;
+  width: min(34rem, 46%);
+  height: auto;
+  transform: translateY(-50%);
+  color: var(--dh-accent-3);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@media (max-width: 991.98px) {
+  .dh-dashboard .dh-hero-art {
+    display: none;
+  }
+}
+
+.dh-dashboard .dh-hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.dh-dashboard .dh-hero-pretitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 100rem;
+  border: 1px solid var(--dh-glass-line);
+  background: var(--dh-glass);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.dh-dashboard .dh-hero-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  background: linear-gradient(
+    100deg,
+    #ffffff 0%,
+    #ffffff 42%,
+    color-mix(in srgb, var(--dh-accent-3) 55%, #ffffff) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dh-dashboard .dh-hero-sub {
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 42rem;
+}
+
+/* Glass chips keep the metadata readable over the gradient. */
+.dh-dashboard .dh-hero-meta-badge {
+  border: 1px solid var(--dh-glass-line);
+  background: var(--dh-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
+}
+
+.dh-dashboard .dh-hero-meta-badge i {
+  color: color-mix(in srgb, var(--dh-accent-3) 90%, #ffffff);
+}
+
+/* Accent button with a soft glow. */
+.dh-dashboard .dh-hero .btn-accent {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--dh-accent-3) 100%, #ffffff 0%) 0%,
+    color-mix(in srgb, var(--dh-accent-3) 78%, #f97316) 100%
+  );
+  color: #1c1e36;
+  box-shadow:
+    0 12px 26px -12px color-mix(in srgb, var(--dh-accent-3) 85%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.dh-dashboard .dh-hero .btn-accent:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 16px 32px -12px color-mix(in srgb, var(--dh-accent-3) 95%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.dh-dashboard .dh-hero .btn-light {
+  background: var(--dh-glass);
+  border: 1px solid var(--dh-glass-line);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.dh-dashboard .dh-hero .btn-light:hover {
+  background: var(--dh-glass-strong);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 /* KPI cards -------------------------------------------------------- */
+.dh-dashboard .dh-stat-card {
+  border: 0;
+  border-radius: var(--tblr-border-radius-lg);
+  box-shadow: 0 14px 30px -16px rgba(23, 26, 54, 0.45);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
+}
+
+/* Richer multi-stop gradient plus a corner bloom. */
+.dh-dashboard .dh-stat-card::before {
+  background:
+    radial-gradient(130% 115% at 100% 0%,
+      rgba(255, 255, 255, 0.28) 0%, transparent 52%),
+    radial-gradient(90% 90% at 0% 100%,
+      rgba(0, 0, 0, 0.16) 0%, transparent 58%),
+    linear-gradient(135deg,
+      var(--dh-stat-from) 0%,
+      var(--dh-stat-mid, var(--dh-stat-from)) 52%,
+      var(--dh-stat-to) 100%);
+}
+
+/* Thin light sweep along the top edge. */
+.dh-dashboard .dh-stat-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.dh-dashboard .dh-stat-card-link:hover,
+.dh-dashboard .dh-stat-card-link:focus-visible {
+  transform: translateY(-3px);
+  box-shadow:
+    0 24px 46px -22px color-mix(in srgb, var(--dh-stat-from) 60%, rgba(23, 26, 54, 0.5)),
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}
+
+.dh-dashboard .dh-stat-card .card-body {
+  padding: 1.2rem 1.3rem;
+}
+
+/* Frosted icon tile. */
+.dh-dashboard .dh-stat-card .stat-card-icon {
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.45);
+  font-size: 1.25rem;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dh-dashboard .dh-stat-card-link:hover .stat-card-icon {
+  transform: scale(1.06) rotate(-3deg);
+}
+
+.dh-dashboard .dh-stat-card .stat-value {
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.dh-dashboard .dh-stat-card .stat-label {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+
+.dh-dashboard .dh-stat-meta {
+  border-top-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.dh-dashboard .dh-stat-meta i {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Per-variant gradients tuned so every card reads as its own hue. */
+.dh-dashboard .stat-card-primary {
+  --dh-stat-from: color-mix(in srgb, var(--tblr-primary) 92%, #ffffff 8%);
+  --dh-stat-mid: var(--tblr-primary);
+  --dh-stat-to: color-mix(in srgb, var(--tblr-primary) 62%, #1b1f4d);
+}
+
+.dh-dashboard .stat-card-success {
+  --dh-stat-from: #34d399;
+  --dh-stat-mid: #22c55e;
+  --dh-stat-to: #15803d;
+}
+
+.dh-dashboard .stat-card-info {
+  --dh-stat-from: #22d3ee;
+  --dh-stat-mid: #06b6d4;
+  --dh-stat-to: #0e7490;
+}
+
+.dh-dashboard .stat-card-warning {
+  --dh-stat-from: #fbbf24;
+  --dh-stat-mid: #f59e0b;
+  --dh-stat-to: #c2410c;
+}
+
 .dh-stat-card-link {
   display: block;
   color: #fff;
@@ -258,20 +598,39 @@
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.9rem 1rem;
+  padding: 0.95rem 1.05rem;
+}
+
+.dh-metric-card {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+}
+
+.dh-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -20px rgba(23, 26, 54, 0.5);
 }
 
 .dh-metric-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.6rem;
+  height: 2.6rem;
   flex-shrink: 0;
-  border-radius: 0.75rem;
+  border-radius: 0.8rem;
   font-size: 1.05rem;
   color: var(--dh-metric-color, var(--tblr-primary));
-  background: color-mix(in srgb, var(--dh-metric-color, var(--tblr-primary)) 12%, transparent);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--dh-metric-color, var(--tblr-primary)) 16%, transparent) 0%,
+    color-mix(in srgb, var(--dh-metric-color, var(--tblr-primary)) 7%, transparent) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--dh-metric-color, var(--tblr-primary)) 20%, transparent);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dh-metric-card:hover .dh-metric-icon {
+  transform: scale(1.06);
 }
 
 .dh-metric-label {
@@ -283,10 +642,11 @@
 }
 
 .dh-metric-value {
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   line-height: 1.15;
+  font-variant-numeric: tabular-nums;
 }
 
 .dh-metric-note {
@@ -305,12 +665,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2.2rem;
+  height: 2.2rem;
   flex-shrink: 0;
-  border-radius: 0.65rem;
+  border-radius: 0.7rem;
   color: var(--dh-panel-color, var(--tblr-primary));
-  background: color-mix(in srgb, var(--dh-panel-color, var(--tblr-primary)) 12%, transparent);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--dh-panel-color, var(--tblr-primary)) 16%, transparent) 0%,
+    color-mix(in srgb, var(--dh-panel-color, var(--tblr-primary)) 7%, transparent) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--dh-panel-color, var(--tblr-primary)) 20%, transparent);
   font-size: 0.98rem;
 }
 
@@ -322,7 +687,8 @@
 
 .dh-panel-headline .h2 {
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
 }
 
 .dh-trend {
@@ -336,13 +702,13 @@
 }
 
 .dh-trend-up {
-  color: #118d57;
-  background: rgba(34, 197, 94, 0.12);
+  color: var(--dh-success);
+  background: var(--dh-success-soft);
 }
 
 .dh-trend-down {
-  color: #d63939;
-  background: rgba(214, 57, 57, 0.12);
+  color: var(--dh-danger);
+  background: var(--dh-danger-soft);
 }
 
 .dh-trend-neutral {
@@ -375,11 +741,24 @@
   color: var(--tblr-muted);
   font-size: 0.72rem;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
-.dh-rank-row:first-child .dh-rank-index {
+/* Top three get their own accent so the ranking reads instantly. */
+.dh-rank-row:nth-child(1) .dh-rank-index {
   color: #8a5a00;
-  background: rgba(248, 184, 78, 0.2);
+  background: rgba(248, 184, 78, 0.22);
+  box-shadow: 0 4px 10px -4px rgba(245, 159, 0, 0.5);
+}
+
+.dh-rank-row:nth-child(2) .dh-rank-index {
+  color: #5b6478;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.dh-rank-row:nth-child(3) .dh-rank-index {
+  color: #9a5b33;
+  background: rgba(217, 119, 6, 0.18);
 }
 
 .dh-rank-body {
@@ -402,8 +781,8 @@
 }
 
 .dh-rank-bar {
-  height: 5px;
-  margin-top: 0.35rem;
+  height: 6px;
+  margin-top: 0.4rem;
   border-radius: 100rem;
   background: var(--tblr-bg-surface-secondary);
   overflow: hidden;
@@ -413,7 +792,13 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--tblr-primary), #8b5cf6);
+  background: linear-gradient(
+    90deg,
+    var(--tblr-primary) 0%,
+    color-mix(in srgb, var(--dh-accent-6) 85%, var(--tblr-primary)) 100%
+  );
+  box-shadow: 0 0 10px -2px color-mix(in srgb, var(--tblr-primary) 70%, transparent);
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Quick actions ---------------------------------------------------- */
@@ -427,15 +812,25 @@
   color: inherit;
   text-decoration: none;
   background: var(--tblr-bg-surface);
-  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.18s ease, background-color 0.18s ease,
+    transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .dh-quick-action:hover {
   color: inherit;
-  border-color: color-mix(in srgb, var(--tblr-primary) 35%, var(--tblr-border-color));
-  background: color-mix(in srgb, var(--tblr-primary) 4%, var(--tblr-bg-surface));
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--tblr-primary) 40%, var(--tblr-border-color));
+  background: color-mix(in srgb, var(--tblr-primary) 5%, var(--tblr-bg-surface));
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px -18px rgba(23, 26, 54, 0.45);
 }
+
+/* Each shortcut cycles through the accent palette. */
+.dh-quick-action:nth-child(6n + 1) { --dh-quick-color: var(--dh-accent-1); }
+.dh-quick-action:nth-child(6n + 2) { --dh-quick-color: var(--dh-accent-2); }
+.dh-quick-action:nth-child(6n + 3) { --dh-quick-color: var(--dh-accent-4); }
+.dh-quick-action:nth-child(6n + 4) { --dh-quick-color: var(--dh-accent-5); }
+.dh-quick-action:nth-child(6n + 5) { --dh-quick-color: var(--dh-accent-3); }
+.dh-quick-action:nth-child(6n + 6) { --dh-quick-color: var(--dh-accent-6); }
 
 .dh-quick-action-icon {
   display: inline-flex;
@@ -445,9 +840,16 @@
   height: 2.4rem;
   flex-shrink: 0;
   border-radius: 0.7rem;
-  color: var(--tblr-primary);
-  background: color-mix(in srgb, var(--tblr-primary) 11%, transparent);
+  color: var(--dh-quick-color, var(--tblr-primary));
+  background: color-mix(in srgb, var(--dh-quick-color, var(--tblr-primary)) 12%, transparent);
   font-size: 1rem;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.18s ease;
+}
+
+.dh-quick-action:hover .dh-quick-action-icon {
+  transform: scale(1.08);
+  background: color-mix(in srgb, var(--dh-quick-color, var(--tblr-primary)) 20%, transparent);
 }
 
 .dh-quick-action-title {
@@ -466,6 +868,12 @@
   margin-left: auto;
   color: var(--tblr-muted);
   font-size: 0.85rem;
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.dh-quick-action:hover .dh-quick-action-arrow {
+  transform: translateX(3px);
+  color: var(--dh-quick-color, var(--tblr-primary));
 }
 
 /* Timeline --------------------------------------------------------- */
@@ -486,6 +894,21 @@
   border-top: 1px solid var(--tblr-border-color);
 }
 
+/* Connector line linking the timeline dots. */
+.dh-timeline-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 0.95rem;
+  top: 2.6rem;
+  bottom: -0.2rem;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tblr-primary) 35%, transparent),
+    color-mix(in srgb, var(--tblr-primary) 8%, transparent)
+  );
+}
+
 .dh-timeline-dot {
   display: inline-flex;
   align-items: center;
@@ -497,6 +920,9 @@
   font-size: 0.82rem;
   color: var(--dh-log-color, var(--tblr-primary));
   background: color-mix(in srgb, var(--dh-log-color, var(--tblr-primary)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dh-log-color, var(--tblr-primary)) 24%, transparent);
+  position: relative;
+  z-index: 1;
 }
 
 .dh-timeline-title {
@@ -619,18 +1045,28 @@
   font-size: 0.78rem;
 }
 
+/* Legend swatches follow the same accent order as the donut chart. */
+.dh-chart-legend-row:nth-child(1) { --dh-swatch: var(--dh-accent-1); }
+.dh-chart-legend-row:nth-child(2) { --dh-swatch: var(--dh-accent-2); }
+.dh-chart-legend-row:nth-child(3) { --dh-swatch: var(--dh-accent-3); }
+.dh-chart-legend-row:nth-child(4) { --dh-swatch: var(--dh-accent-4); }
+.dh-chart-legend-row:nth-child(5) { --dh-swatch: var(--dh-accent-5); }
+.dh-chart-legend-row:nth-child(6) { --dh-swatch: var(--dh-accent-6); }
+
 .dh-chart-swatch {
-  width: 0.6rem;
-  height: 0.6rem;
+  width: 0.65rem;
+  height: 0.65rem;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--dh-swatch, var(--tblr-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dh-swatch, var(--tblr-primary)) 16%, transparent);
 }
 
 .dh-chart-legend-count {
   margin-left: auto;
   color: var(--tblr-muted);
-  font-weight: 600;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Empty state ------------------------------------------------------ */
@@ -680,5 +1116,403 @@
 
   .dh-fare-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dh-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Toolbar ----------------------------------------------------------- */
+.dh-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius-lg);
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--tblr-primary) 6%, var(--tblr-bg-surface)) 0%,
+    var(--tblr-bg-surface) 55%,
+    color-mix(in srgb, var(--dh-accent-4) 5%, var(--tblr-bg-surface)) 100%
+  );
+  box-shadow: var(--tblr-shadow-card);
+}
+
+.dh-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.dh-toolbar-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tblr-muted);
+}
+
+.dh-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--tblr-border-radius);
+  border: 1px solid var(--tblr-border-color);
+  background: var(--tblr-bg-surface);
+  color: var(--tblr-body-color);
+  font-weight: 600;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.dh-refresh-btn:hover {
+  border-color: color-mix(in srgb, var(--tblr-primary) 40%, var(--tblr-border-color));
+  color: var(--tblr-primary);
+  background: color-mix(in srgb, var(--tblr-primary) 5%, var(--tblr-bg-surface));
+}
+
+.dh-refresh-btn[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--tblr-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--tblr-primary) 10%, var(--tblr-bg-surface));
+  color: var(--tblr-primary);
+}
+
+.dh-refresh-icon {
+  font-size: 0.8rem;
+}
+
+.dh-refresh-btn[aria-pressed="true"] .dh-refresh-icon {
+  animation: dh-spin 2.4s linear infinite;
+}
+
+@keyframes dh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dh-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  color: var(--tblr-muted);
+  font-weight: 500;
+}
+
+.dh-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100rem;
+  background: rgba(34, 197, 94, 0.12);
+  color: #118d57;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dh-live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: dh-pulse 1.8s ease-out infinite;
+}
+
+@keyframes dh-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 0.45rem rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+/* Health ------------------------------------------------------------ */
+.dh-health-pill,
+.dh-health-score {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dh-health-score {
+  font-size: 0.82rem;
+  padding: 0.28rem 0.7rem;
+}
+
+.dh-health-pill.is-good,
+.dh-health-score.is-good {
+  color: #118d57;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.dh-health-pill.is-warn,
+.dh-health-score.is-warn {
+  color: #a16207;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.dh-health-pill.is-poor,
+.dh-health-score.is-poor {
+  color: #d63939;
+  background: rgba(214, 57, 57, 0.14);
+}
+
+.dh-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dh-health-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dh-health-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dh-health-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--tblr-primary);
+  background: color-mix(in srgb, var(--tblr-primary) 12%, transparent);
+}
+
+.dh-health-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.dh-health-value {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tblr-body-color);
+}
+
+.dh-health-bar {
+  height: 7px;
+  border-radius: 100rem;
+  background: var(--tblr-bg-surface-secondary);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(23, 26, 54, 0.08);
+}
+
+.dh-health-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dh-health-fill.is-good {
+  background: linear-gradient(90deg, #34d399, #16a34a);
+  box-shadow: 0 0 12px -2px rgba(34, 197, 94, 0.75);
+}
+
+.dh-health-fill.is-warn {
+  background: linear-gradient(90deg, #fbbf24, #ea580c);
+  box-shadow: 0 0 12px -2px rgba(245, 158, 11, 0.7);
+}
+
+.dh-health-fill.is-poor {
+  background: linear-gradient(90deg, #f87171, #dc2626);
+  box-shadow: 0 0 12px -2px rgba(220, 38, 38, 0.7);
+}
+
+.dh-health-detail {
+  font-size: 0.7rem;
+  color: var(--tblr-muted);
+}
+
+/* Panel link -------------------------------------------------------- */
+.dh-panel-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 100rem;
+  border: 1px solid var(--tblr-border-color);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--tblr-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.dh-panel-link:hover {
+  color: var(--tblr-primary);
+  border-color: color-mix(in srgb, var(--tblr-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--tblr-primary) 7%, transparent);
+  transform: translateX(2px);
+}
+
+.dh-panel-link i {
+  font-size: 0.68rem;
+  transition: transform 0.18s ease;
+}
+
+.dh-panel-link:hover i {
+  transform: translateX(2px);
+}
+
+/* Demand tabs -------------------------------------------------------- */
+.dh-demand-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.22rem;
+  border-radius: 100rem;
+  background: var(--tblr-bg-surface-secondary);
+  border: 1px solid var(--tblr-border-color);
+  margin-bottom: 1rem;
+}
+
+.dh-demand-tab {
+  border: 0;
+  border-radius: 100rem;
+  padding: 0.35rem 0.85rem;
+  background: transparent;
+  color: var(--tblr-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dh-demand-tab:hover {
+  color: var(--tblr-body-color);
+}
+
+.dh-demand-tab.is-active {
+  background: linear-gradient(
+    135deg,
+    var(--tblr-primary) 0%,
+    color-mix(in srgb, var(--tblr-primary) 72%, var(--dh-accent-6)) 100%
+  );
+  color: #fff;
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--tblr-primary) 65%, transparent);
+}
+
+.dh-demand-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--tblr-primary) 60%, transparent);
+  outline-offset: 2px;
+}
+
+/* Dark mode --------------------------------------------------------- */
+[data-bs-theme="dark"] .dh-dashboard {
+  --dh-glass: rgba(255, 255, 255, 0.07);
+  --dh-glass-strong: rgba(255, 255, 255, 0.13);
+  --dh-glass-line: rgba(255, 255, 255, 0.12);
+  --dh-hairline: rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="dark"] .dh-dashboard .card {
+  box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.8);
+}
+
+[data-bs-theme="dark"] .dh-dashboard .card:hover {
+  box-shadow: 0 22px 46px -24px rgba(0, 0, 0, 0.9);
+}
+
+[data-bs-theme="dark"] .dh-dashboard .card::after {
+  opacity: 0.4;
+}
+
+[data-bs-theme="dark"] .dh-dashboard .dh-hero {
+  background:
+    radial-gradient(70% 120% at 88% -10%,
+      color-mix(in srgb, var(--tblr-primary) 45%, transparent) 0%,
+      transparent 58%),
+    radial-gradient(60% 100% at 8% 110%,
+      color-mix(in srgb, var(--dh-accent-4) 24%, transparent) 0%,
+      transparent 60%),
+    linear-gradient(125deg, #0b0d1e 0%, #141634 46%, #1b1f4b 100%);
+}
+
+/* Slightly stronger glass borders so chips stay legible on dark surfaces. */
+[data-bs-theme="dark"] .dh-dashboard .dh-hero-meta-badge,
+[data-bs-theme="dark"] .dh-dashboard .dh-hero-pretitle {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="dark"] .dh-dashboard .dh-health-bar {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+[data-bs-theme="dark"] .dh-dashboard .dh-metric-icon,
+[data-bs-theme="dark"] .dh-dashboard .dh-panel-icon {
+  border-color: color-mix(in srgb, var(--dh-metric-color, var(--dh-panel-color, var(--tblr-primary))) 26%, transparent);
+}
+
+/* Reduced motion ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .dh-dashboard *,
+  .dh-dashboard *::before,
+  .dh-dashboard *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Print ------------------------------------------------------------- */
+@media print {
+  .dh-dashboard .dh-hero {
+    color: #000;
+    background: none;
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+
+  .dh-dashboard .dh-hero::before,
+  .dh-dashboard .dh-hero::after {
+    display: none;
+  }
+
+  .dh-dashboard .dh-hero-title {
+    -webkit-text-fill-color: #000;
+    color: #000;
+  }
+
+  .dh-dashboard .dh-toolbar,
+  .dh-dashboard .dh-panel-link,
+  .dh-dashboard .dh-demand-tabs {
+    display: none !important;
+  }
+
+  .dh-dashboard .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
   }
 }

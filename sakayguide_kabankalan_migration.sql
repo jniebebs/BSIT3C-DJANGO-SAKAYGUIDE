@@ -15,15 +15,15 @@ SET municipality_name = 'Kabankalan City', province = 'Negros Occidental',
 WHERE municipality_id = 1;
 
 -- 2. BARANGAYS 1-10 (renamed) ---------------------------------------
-UPDATE barangays SET barangay_name = 'Barangay 1 (Poblacion)' WHERE barangay_id = 1;
-UPDATE barangays SET barangay_name = 'Barangay 2 (Poblacion)' WHERE barangay_id = 2;
-UPDATE barangays SET barangay_name = 'Barangay 3 (Poblacion)' WHERE barangay_id = 3;
-UPDATE barangays SET barangay_name = 'Barangay 4 (Poblacion)' WHERE barangay_id = 4;
-UPDATE barangays SET barangay_name = 'Barangay 5 (Poblacion)' WHERE barangay_id = 5;
-UPDATE barangays SET barangay_name = 'Barangay 6 (Poblacion)' WHERE barangay_id = 6;
-UPDATE barangays SET barangay_name = 'Barangay 7 (Poblacion)' WHERE barangay_id = 7;
-UPDATE barangays SET barangay_name = 'Barangay 8 (Poblacion)' WHERE barangay_id = 8;
-UPDATE barangays SET barangay_name = 'Barangay 9 (Poblacion)' WHERE barangay_id = 9;
+UPDATE barangays SET barangay_name = 'Barangay 1' WHERE barangay_id = 1;
+UPDATE barangays SET barangay_name = 'Barangay 2' WHERE barangay_id = 2;
+UPDATE barangays SET barangay_name = 'Barangay 3' WHERE barangay_id = 3;
+UPDATE barangays SET barangay_name = 'Barangay 4' WHERE barangay_id = 4;
+UPDATE barangays SET barangay_name = 'Barangay 5' WHERE barangay_id = 5;
+UPDATE barangays SET barangay_name = 'Barangay 6' WHERE barangay_id = 6;
+UPDATE barangays SET barangay_name = 'Barangay 7' WHERE barangay_id = 7;
+UPDATE barangays SET barangay_name = 'Barangay 8' WHERE barangay_id = 8;
+UPDATE barangays SET barangay_name = 'Barangay 9' WHERE barangay_id = 9;
 UPDATE barangays SET barangay_name = 'Bantayan' WHERE barangay_id = 10;
 
 -- 2b. BARANGAYS 11-32 (added) ---------------------------------------

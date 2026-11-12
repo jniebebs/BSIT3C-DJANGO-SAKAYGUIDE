@@ -37,10 +37,21 @@
         <span class="h3 mb-0">{{ destination.location_name }}</span>
         <div class="text-muted small mt-1">
           {{ journeys|length }} journey option{{ journeys|length|pluralize }} found
+        </div>
+        {% if cheapest_fare is not None or fastest_time is not None %}
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          {% if cheapest_fare is not None %}
+          <span class="badge text-bg-green">
+            <i class="ti ti-cash me-1"></i>Fare from &#8369;{{ cheapest_fare }}
+          </span>
+          {% endif %}
           {% if fastest_time is not None %}
-            &middot; fastest ~{{ fastest_time }} min
+          <span class="badge text-bg-cyan">
+            <i class="ti ti-clock me-1"></i>Fastest ~{{ fastest_time }} min
+          </span>
           {% endif %}
         </div>
+        {% endif %}
       </div>
       <div class="btn-group" role="group" aria-label="Sort results">
         {% for key, label in sort_choices %}
@@ -124,7 +135,7 @@
             <span class="sg-legend-item"><span class="sg-legend-line" style="background:#1c7ed6"></span>Ride path (Ride 1)</span>
             <span class="sg-legend-item"><span class="sg-legend-line" style="background:#0ca678"></span>Ride 2</span>
             <span class="sg-legend-item"><span class="sg-legend-line" style="background:#e8590c"></span>Ride 3</span>
-            <span class="sg-legend-item"><span class="sg-legend-line sg-legend-dashed"></span>Approximate connection</span>
+            <span class="sg-legend-item"><span class="sg-legend-line sg-legend-dashed"></span>{% if google_maps.enabled %}Alternative / approximate{% else %}Approximate connection{% endif %}</span>
             {% endif %}
           </div>
         </div>
@@ -134,14 +145,19 @@
               <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <button type="button" class="btn btn-outline-primary btn-sm"
                         data-gps-toggle aria-pressed="false"
-                        title="Show your live device position on the map">
-                  <i class="ti ti-current-location me-1"></i><span data-gps-toggle-label>Live GPS</span>
+                        title="Show and follow your live device position on the map">
+                  <i class="ti ti-current-location me-1"></i><span data-gps-toggle-label>My Current Location</span>
                 </button>
                 <span class="small sg-gps-status" data-gps-status
                       role="status" aria-live="polite" hidden></span>
               </div>
               <div class="sg-map sg-map-main" id="sg-journey-map" data-journey-map></div>
               <div class="text-muted small mt-2" id="sg-map-notes"></div>
+              <div class="sg-map-engine-note" id="sg-map-engine-note" hidden></div>
+              <div class="sg-google-directions" id="sg-google-directions"
+                   data-google-directions role="region"
+                   aria-label="Google Maps turn-by-turn directions"
+                   aria-live="polite"></div>
             </div>
             {% if journeys %}
             <div class="col-12 col-lg-4">
@@ -217,8 +233,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'libs/leaflet/leaflet.js' %}"></script>
-<script src="{% static 'js/live-gps.js' %}?v=1"></script>
-<script src="{% static 'js/route-search.js' %}?v=4"></script>
-<script src="{% static 'js/route-map.js' %}?v=12"></script>
+{% include "routes/_map_assets.html" with map_page="results" %}
+<script src="{% static 'js/route-search.js' %}?v=7"></script>
 {% endblock %}

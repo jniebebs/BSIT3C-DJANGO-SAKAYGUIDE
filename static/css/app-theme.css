@@ -47,6 +47,21 @@
   --tblr-primary-rgb: 99, 102, 241;
 }
 
+[data-bs-theme-primary="violet"] {
+  --tblr-primary: #8b5cf6;
+  --tblr-primary-rgb: 139, 92, 246;
+}
+
+[data-bs-theme-primary="fuchsia"] {
+  --tblr-primary: #d946ef;
+  --tblr-primary-rgb: 217, 70, 239;
+}
+
+[data-bs-theme-primary="rose"] {
+  --tblr-primary: #f472b6;
+  --tblr-primary-rgb: 244, 114, 182;
+}
+
 [data-bs-theme="dark"],
 body[data-bs-theme="dark"] [data-bs-theme="light"] {
   --tblr-body-bg: #0e1020;

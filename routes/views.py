@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
@@ -7,14 +8,21 @@ from django.utils.crypto import get_random_string
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import RouteSearchForm, SaveRouteForm
-from .models import Location, SakayUser, SavedRoute, SearchHistory
+from .models import (
+    Location,
+    SakayUser,
+    SavedRoute,
+    SearchHistory,
+)
 from .services import (
+    destination_summaries,
     find_journeys,
     location_choices,
     locations_map,
     map_locations,
     popular_destinations,
     sort_journeys,
+    transport_options,
 )
 
 PROVISIONAL_NOTE = (
@@ -22,6 +30,29 @@ PROVISIONAL_NOTE = (
     'test estimates from the SakayGuide database - not official transport '
     'information.'
 )
+
+
+def _google_maps_config():
+    """Browser configuration for Google Maps (key never hard-coded).
+
+    Only the route pages receive this. The key is restricted in Google Cloud
+    by HTTP referrer and by API, so it is safe to deliver to the browser; the
+    server-side value still lives only in .env / the process environment.
+    """
+    api_key = (getattr(settings, 'GOOGLE_MAPS_API_KEY', '') or '').strip()
+    return {
+        'api_key': api_key,
+        'enabled': bool(api_key),
+        'language': getattr(settings, 'GOOGLE_MAPS_LANGUAGE', 'en'),
+        'region': getattr(settings, 'GOOGLE_MAPS_REGION', 'PH'),
+        'center': {'lat': 9.9926, 'lng': 122.8135},
+        'bounds': {
+            'south': 9.70,
+            'west': 122.66,
+            'north': 10.12,
+            'east': 122.99,
+        },
+    }
 
 
 def _resolve_location(location_id):
@@ -88,6 +119,7 @@ def route_search(request):
     sort = 'fare'
     maps = []
     fastest_time = None
+    cheapest_fare = None
 
     if bound and form.is_valid():
         searched = True
@@ -105,6 +137,9 @@ def route_search(request):
                 fastest_time = min(
                     journey['total_time'] for journey in journeys
                 )
+                cheapest_fare = min(
+                    journey['total_fare'] for journey in journeys
+                )
                 maps = [journey['map'] for journey in journeys]
             else:
                 # No route found: still show the Kabankalan City map with
@@ -121,6 +156,8 @@ def route_search(request):
         'locations': location_choices(),
         'map_locations': map_locations(),
         'popular': popular_destinations(),
+        'transport_options': transport_options(),
+        'google_maps': _google_maps_config(),
         'provisional_note': PROVISIONAL_NOTE,
         'searched': searched,
         'origin': origin,
@@ -128,6 +165,7 @@ def route_search(request):
         'journeys': journeys,
         'maps': maps,
         'fastest_time': fastest_time,
+        'cheapest_fare': cheapest_fare,
         'sort': sort,
         'sort_choices': [
             ('fare', 'Lowest fare'),
@@ -191,6 +229,33 @@ def journey_map_json(request):
         )
 
     return JsonResponse(journeys[index]['map'])
+
+
+@require_GET
+def destination_summaries_json(request):
+    """JSON endpoint: fare/time from a starting location to every other one.
+
+    GET /plan/destinations/?origin=<location id>
+
+    The search form uses this to annotate destination suggestions with the
+    cheapest recorded fare and its estimated travel time, and to preview the
+    selected pair before Find My Route is submitted.
+    """
+    origin = _resolve_location(request.GET.get('origin'))
+    if origin is None:
+        return JsonResponse(
+            {'error': 'Choose an active starting point.'}, status=400,
+        )
+
+    return JsonResponse({
+        'origin': {
+            'location_id': origin.location_id,
+            'location_name': origin.location_name,
+        },
+        'destinations': destination_summaries(
+            origin.location_id, origin=origin,
+        ),
+    })
 
 
 @require_POST

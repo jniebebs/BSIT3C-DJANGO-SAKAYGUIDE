@@ -25,12 +25,19 @@ results and opens its Route Information Panel.
           Direct route
         {% endif %}
       </span>
+      {% for mode in journey.transport_names %}
       <span class="badge text-bg-secondary">
-        {{ journey.legs.0.route.transport_type.transport_name }}
+        <i class="ti ti-bus me-1"></i>{{ mode }}
       </span>
+      {% endfor %}
       <span class="badge text-bg-cyan">
         <i class="ti ti-clock me-1"></i>Est. {{ journey.total_time }} min
       </span>
+      {% if journey.total_distance_km %}
+      <span class="badge text-bg-purple">
+        <i class="ti ti-road me-1"></i>{{ journey.total_distance_km }} km
+      </span>
+      {% endif %}
       <span class="badge text-bg-light border text-muted">
         <i class="ti ti-flask me-1"></i>Provisional estimate
       </span>
@@ -45,6 +52,9 @@ results and opens its Route Information Panel.
         <div class="text-muted small mt-1">
           &#8369;{{ journey.total_fare }} estimated total fare
           &middot; {{ journey.legs|length }} ride{{ journey.legs|length|pluralize }}
+          {% if journey.total_distance_km %}
+          &middot; {{ journey.total_distance_km }} km total
+          {% endif %}
         </div>
         {% if journey.transfer_count %}
         <div class="text-muted small mt-1">

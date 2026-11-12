@@ -374,6 +374,32 @@ def _sakayguide_stats(log_limit=6, recent_search_limit=5):
             for name, count in destination_rows
         ]
 
+        # ---- Top origins (mirror of top destinations) ------------------------
+        cursor.execute(
+            """
+            SELECT l.location_name, COUNT(*) AS hits
+              FROM search_history sh
+              JOIN locations l ON l.location_id = sh.origin_id
+             GROUP BY l.location_id, l.location_name
+             ORDER BY hits DESC, l.location_name
+             LIMIT 5
+            """
+        )
+        origin_rows = cursor.fetchall()
+        origin_top_hits = origin_rows[0][1] if origin_rows else 0
+        stats['top_origins'] = [
+            {
+                'name': name,
+                'count': count,
+                'share': (
+                    round(count * 100 / total_searches)
+                    if total_searches else 0
+                ),
+                'bar': round(count * 100 / origin_top_hits) if origin_top_hits else 0,
+            }
+            for name, count in origin_rows
+        ]
+
         if recent_search_limit:
             cursor.execute(
                 f"""
@@ -476,6 +502,100 @@ def _sakayguide_stats(log_limit=6, recent_search_limit=5):
             if stats['active_locations'] else 0
         )
 
+        # ---- Network health / data completeness -----------------------------
+        cursor.execute(
+            """
+            SELECT
+                (SELECT COUNT(*)
+                   FROM routes r
+                  WHERE r.status = 'active'
+                    AND NOT EXISTS (SELECT 1 FROM route_stops s
+                                     WHERE s.route_id = r.route_id)) AS routes_without_stops,
+                (SELECT COUNT(*)
+                   FROM routes r
+                  WHERE r.status = 'active'
+                    AND NOT EXISTS (SELECT 1 FROM route_fares f
+                                     WHERE f.route_id = r.route_id
+                                       AND f.status = 'active')) AS routes_without_fares,
+                (SELECT COUNT(*)
+                   FROM routes r
+                  WHERE r.status = 'active'
+                    AND NOT EXISTS (SELECT 1 FROM route_transfers t
+                                     WHERE t.from_route_id = r.route_id
+                                        OR t.to_route_id = r.route_id)) AS routes_without_transfers,
+                (SELECT AVG(estimated_travel_time)
+                   FROM routes WHERE status = 'active') AS avg_travel_time,
+                (SELECT MIN(estimated_travel_time)
+                   FROM routes WHERE status = 'active') AS min_travel_time,
+                (SELECT MAX(estimated_travel_time)
+                   FROM routes WHERE status = 'active') AS max_travel_time
+            """
+        )
+        (
+            routes_without_stops,
+            routes_without_fares,
+            routes_without_transfers,
+            avg_travel_time,
+            min_travel_time,
+            max_travel_time,
+        ) = cursor.fetchone()
+
+        stats['routes_without_stops'] = routes_without_stops or 0
+        stats['routes_without_fares'] = routes_without_fares or 0
+        stats['routes_without_transfers'] = routes_without_transfers or 0
+        stats['avg_travel_time'] = (
+            round(avg_travel_time, 1) if avg_travel_time is not None else None
+        )
+        stats['min_travel_time'] = min_travel_time
+        stats['max_travel_time'] = max_travel_time
+
+        route_total = stats['active_routes'] or 0
+        location_total = stats['active_locations'] or 0
+
+        def _ratio(ok, total):
+            return round(ok * 100 / total) if total else 0
+
+        health_checks = [
+            {
+                'key': 'stops',
+                'label': 'Routes with ordered stops',
+                'detail': (
+                    f"{route_total - stats['routes_without_stops']}"
+                    f" of {route_total} routes"
+                ),
+                'percent': _ratio(
+                    route_total - stats['routes_without_stops'], route_total
+                ),
+                'icon': 'fa-circle-stop',
+            },
+            {
+                'key': 'fares',
+                'label': 'Routes with an active fare',
+                'detail': (
+                    f"{route_total - stats['routes_without_fares']}"
+                    f" of {route_total} routes"
+                ),
+                'percent': _ratio(
+                    route_total - stats['routes_without_fares'], route_total
+                ),
+                'icon': 'fa-ticket',
+            },
+            {
+                'key': 'coords',
+                'label': 'Locations with verified coordinates',
+                'detail': (
+                    f"{stats['active_with_coords']} of {location_total} locations"
+                ),
+                'percent': stats['coverage_percent'],
+                'icon': 'fa-map-pin',
+            },
+        ]
+        stats['health_checks'] = health_checks
+        stats['network_health'] = (
+            round(sum(check['percent'] for check in health_checks) / len(health_checks))
+            if health_checks else 0
+        )
+
         cursor.execute(
             "SELECT COUNT(*) FROM admin_activity_logs WHERE created_at >= %s",
             [week_start],
@@ -500,7 +620,11 @@ def _dashboard_page(request, template_name, **stats_options):
     return render(
         request,
         template_name,
-        {'stats': stats, 'db_error': error},
+        {
+            'stats': stats,
+            'db_error': error,
+            'generated_at': timezone.now(),
+        },
     )
 
 
@@ -509,7 +633,7 @@ def home(request):
     return _dashboard_page(
         request,
         'home.html',
-        log_limit=0,
+        log_limit=6,
         recent_search_limit=0,
     )
 
