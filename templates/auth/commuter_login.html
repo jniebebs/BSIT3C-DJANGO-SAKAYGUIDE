@@ -1,0 +1,145 @@
+{% extends "auth/base.html" %}
+{% load static %}
+
+{% block page_title %}Commuter sign in &middot; SakayGuide{% endblock %}
+{% block body_class %}is-commuter{% endblock %}
+{% block brand_sub %}Commuter Portal{% endblock %}
+
+{% block content %}
+<div class="card sg-card">
+  <div class="card-body">
+    <div class="sg-eyebrow">
+      <i class="fa-solid fa-route"></i> Commuter access
+    </div>
+    <h1>Commuter sign in</h1>
+    <p class="sg-subtitle">
+      Sign in with your commuter username or e-mail address.
+    </p>
+
+    {% if banner %}
+    <div class="sg-banner">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>{{ banner }}</span>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+    <div class="mb-3" aria-live="polite">
+      {% for message in messages %}
+      <div class="alert sg-alert mb-2
+        {% if message.tags == 'success' %}alert-success
+        {% elif message.tags == 'warning' %}alert-warning
+        {% elif message.tags == 'error' %}alert-danger
+        {% else %}alert-info{% endif %}" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if locked %}
+    <div class="alert alert-warning sg-alert" id="login-lock" data-remaining="{{ remaining }}" role="alert">
+      <i class="fa-solid fa-lock me-1"></i>
+      Too many failed attempts. Try again in <strong id="lock-seconds">{{ remaining }}</strong> seconds.
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label" for="login-username">Username or e-mail</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-regular fa-user"></i></span>
+          <input type="text" class="form-control" id="login-username"
+                 name="username" autocomplete="username" autofocus
+                 placeholder="e.g. juan or name@example.com"
+                 value="{{ identifier }}"
+                 {% if locked %}disabled{% endif %} required>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="login-password">Password</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-solid fa-lock"></i></span>
+          <input type="password" class="form-control" id="login-password"
+                 name="password" autocomplete="current-password"
+                 placeholder="Enter your password"
+                 {% if locked %}disabled{% endif %} required>
+          <button type="button" class="btn btn-outline-secondary" id="toggle-password"
+                  aria-label="Show password" aria-pressed="false">
+            <i class="fa-regular fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100 sg-submit" {% if locked %}disabled{% endif %}>
+        <i class="fa-solid fa-arrow-right-to-bracket me-1"></i> Sign in as commuter
+      </button>
+    </form>
+
+    <div class="sg-meta">
+      <span><i class="fa-solid fa-lock me-1"></i>Encrypted session &amp; CSRF protected</span>
+      <span><a href="{% url 'commuter_password_reset' %}">Forgot password?</a></span>
+      <span><a href="{% url 'login' %}">Other account type</a></span>
+    </div>
+  </div>
+</div>
+
+<div class="card sg-card mt-3">
+  <div class="card-body text-center">
+    <h2 class="h5 mb-1">New to SakayGuide?</h2>
+    <p class="sg-subtitle mb-3">
+      Create a commuter account to find jeepney and tricycle routes, fares and
+      travel times.
+    </p>
+    <a href="{% url 'commuter_register' %}" class="btn btn-primary w-100 sg-submit">
+      <i class="fa-solid fa-user-plus me-1"></i> Register as commuter
+    </a>
+  </div>
+</div>
+
+<p class="sg-foot">
+  SakayGuide &middot; Kabankalan City transit information
+  <br>
+  Administrators should use the
+  <a href="{% url 'admin_login' %}">administrator sign-in page</a>.
+</p>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var toggle = document.getElementById('toggle-password');
+    var password = document.getElementById('login-password');
+    if (toggle && password) {
+      toggle.addEventListener('click', function () {
+        var reveal = password.type === 'password';
+        password.type = reveal ? 'text' : 'password';
+        toggle.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+        toggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+        var icon = toggle.querySelector('i');
+        if (icon) {
+          icon.className = reveal ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        }
+      });
+    }
+
+    var lock = document.getElementById('login-lock');
+    if (lock) {
+      var remaining = parseInt(lock.getAttribute('data-remaining'), 10) || 0;
+      var label = document.getElementById('lock-seconds');
+      var timer = window.setInterval(function () {
+        remaining -= 1;
+        if (remaining > 0 && label) {
+          label.textContent = remaining;
+        } else {
+          window.clearInterval(timer);
+          window.location.href = '{% url "commuter_login" %}';
+        }
+      }, 1000);
+    }
+  })();
+</script>
+{% endblock %}

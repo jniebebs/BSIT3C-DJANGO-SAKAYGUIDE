@@ -2,22 +2,17 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
 
 from apps.core.audit import log_account_creation
-
-
-def _is_superuser(user):
-    return user.is_superuser
+from apps.core.permissions import administrator_required
 
 
 # PAGE
-@login_required(login_url='login')
-@user_passes_test(_is_superuser, login_url='dashboard')
+@administrator_required
 def user_list_page(request):
     query = request.GET.get('q', '').strip()
 
@@ -42,8 +37,7 @@ def user_list_page(request):
 
 
 # LIST USERS (AJAX)
-@login_required(login_url='login')
-@user_passes_test(_is_superuser, login_url='dashboard')
+@administrator_required
 def user_list_ajax(request):
     users_list = User.objects.all().order_by('-date_joined')
     paginator = Paginator(users_list, 10)
@@ -70,8 +64,7 @@ def user_list_ajax(request):
 
 
 # GET SINGLE USER (AJAX)
-@login_required(login_url='login')
-@user_passes_test(_is_superuser, login_url='dashboard')
+@administrator_required
 def user_get_ajax(request, pk):
     user = get_object_or_404(User, pk=pk)
     return JsonResponse({
@@ -86,8 +79,7 @@ def user_get_ajax(request, pk):
 
 
 # CREATE / UPDATE USER (AJAX)
-@login_required(login_url='login')
-@user_passes_test(_is_superuser, login_url='dashboard')
+@administrator_required
 @require_POST
 def user_save_ajax(request):
     user_id = request.POST.get("id")
@@ -113,11 +105,21 @@ def user_save_ajax(request):
     if email and dup_qs.filter(email=email).exists():
         return JsonResponse({"error": "That email is already in use."}, status=400)
 
+    # Every administrator may grant or revoke the administrator role.
+    wants_staff = request.POST.get("is_staff") == "true"
+    if wants_staff != user.is_staff:
+        # An administrator cannot lock themselves out.
+        if user_id and int(user_id) == request.user.pk:
+            return JsonResponse(
+                {"error": "You cannot change your own account role."},
+                status=400,
+            )
+
     user.username   = username
     user.first_name = request.POST.get("first_name", "")
     user.last_name  = request.POST.get("last_name", "")
     user.email      = email
-    user.is_staff   = request.POST.get("is_staff") == "true"
+    user.is_staff   = wants_staff
     user.is_active  = request.POST.get("is_active") == "true"
 
     password = request.POST.get("password")
@@ -162,13 +164,20 @@ def user_save_ajax(request):
 
 
 # DELETE USER (AJAX)
-@login_required(login_url='login')
-@user_passes_test(_is_superuser, login_url='dashboard')
+@administrator_required
 @require_POST
 def user_delete_ajax(request, pk):
     user = get_object_or_404(User, pk=pk)
     if request.user == user:
         return JsonResponse({"error": "You cannot delete yourself"}, status=400)
+    if user.is_staff and user.is_active:
+        # Guard the last active administrator so the console stays usable.
+        active_admins = User.objects.filter(is_staff=True, is_active=True)
+        if active_admins.count() <= 1:
+            return JsonResponse(
+                {"error": "At least one active administrator must remain."},
+                status=400,
+            )
     username = user.username
     user.delete()
     return JsonResponse({

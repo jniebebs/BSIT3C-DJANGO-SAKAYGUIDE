@@ -1,0 +1,40 @@
+{% load management_tags %}
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mgmt-pagination" aria-label="Pagination">
+  <p class="mgmt-pagination-summary">
+    Showing {{ page_obj.start_index }}&ndash;{{ page_obj.end_index }}
+    of {{ page_obj.paginator.count }}
+  </p>
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+      {% if page_obj.has_previous %}
+      <a class="page-link" href="{% page_query page_obj.previous_page_number page_param %}" aria-label="Previous page">
+        <i class="fa-solid fa-chevron-left"></i>
+      </a>
+      {% else %}
+      <span class="page-link"><i class="fa-solid fa-chevron-left"></i></span>
+      {% endif %}
+    </li>
+    {% for number in page_obj.paginator.page_range %}
+      {% if number == page_obj.number %}
+      <li class="page-item active" aria-current="page">
+        <span class="page-link">{{ number }}</span>
+      </li>
+      {% elif number >= page_obj.number|add:"-2" and number <= page_obj.number|add:"2" %}
+      <li class="page-item">
+        <a class="page-link" href="{% page_query number page_param %}">{{ number }}</a>
+      </li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+      {% if page_obj.has_next %}
+      <a class="page-link" href="{% page_query page_obj.next_page_number page_param %}" aria-label="Next page">
+        <i class="fa-solid fa-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="page-link"><i class="fa-solid fa-chevron-right"></i></span>
+      {% endif %}
+    </li>
+  </ul>
+</nav>
+{% endif %}

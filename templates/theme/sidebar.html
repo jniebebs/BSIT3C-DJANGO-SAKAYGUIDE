@@ -1,13 +1,14 @@
-<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar">
+{% load static %}
+<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar dh-sidebar-admin">
   <div class="container-fluid">
     <div class="navbar-brand navbar-brand-autodark dh-brand">
-      <a href="." class="d-flex align-items-center gap-2 text-decoration-none">
+      <a href="{% url 'management_dashboard' %}" class="d-flex align-items-center gap-2 text-decoration-none">
         <span class="dh-brand-mark">
           <i class="fa-solid fa-shield-halved"></i>
         </span>
         <span class="lh-1">
           <span class="dh-brand-name">Sakay<span class="text-warning">Guide</span></span>
-          <span class="dh-brand-sub">Management System</span>
+          <span class="dh-brand-sub">Administrator</span>
         </span>
       </a>
     </div>
@@ -20,7 +21,7 @@
       aria-controls="sidebar-menu"
       aria-expanded="false"
       aria-label="Toggle navigation"
-      >
+    >
       <span class="navbar-toggler-icon"></span>
     </button>
 
@@ -29,118 +30,173 @@
 
         <li class="nav-item">
           <span class="dh-nav-section">
-            Menu
+            Overview
           </span>
         </li>
         <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_dashboard' %}active{% endif %}"
+             href="{% url 'management_dashboard' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa fa-dashboard"></i>
+              <i class="fa-solid fa-gauge-high"></i>
             </span>
             <span class="nav-link-title">Dashboard</span>
           </a>
         </li>
-
         <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'routes' %}active{% endif %}" href="{% url 'routes:route_search' %}">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_reports' %}active{% endif %}"
+             href="{% url 'management_reports' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa fa-route"></i>
+              <i class="fa-solid fa-chart-column"></i>
             </span>
-            <span class="nav-link-title">Find My Route</span>
+            <span class="nav-link-title">Reports</span>
           </a>
         </li>
 
         <li class="nav-item">
-          <span class="dh-nav-section">Monitor</span>
+          <span class="dh-nav-section">
+            Accounts
+          </span>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_activity' %}active{% endif %}" href="{% url 'dashboard_activity' %}">
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_users' and request.GET.role == 'commuter' %}active{% endif %}"
+             href="{% url 'management_users' %}?role=commuter">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa-solid fa-chart-line"></i>
+              <i class="fa-solid fa-people-group"></i>
             </span>
-            <span class="nav-link-title">Activity</span>
+            <span class="nav-link-title">Commuter Management</span>
           </a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_routes' %}active{% endif %}" href="{% url 'dashboard_routes' %}">
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_users' and request.GET.role == 'administrator' %}active{% endif %}"
+             href="{% url 'management_users' %}?role=administrator">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa-solid fa-route"></i>
+              <i class="fa-solid fa-user-shield"></i>
             </span>
-            <span class="nav-link-title">Active Routes</span>
+            <span class="nav-link-title">Administrator Management</span>
           </a>
         </li>
+
         <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_locations' %}active{% endif %}" href="{% url 'dashboard_locations' %}">
+          <span class="dh-nav-section">
+            Transportation
+          </span>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_locations' %}active{% endif %}"
+             href="{% url 'management_locations' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-solid fa-location-dot"></i>
             </span>
-            <span class="nav-link-title">Active Locations</span>
+            <span class="nav-link-title">Location Management</span>
           </a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_transfers' %}active{% endif %}" href="{% url 'dashboard_transfers' %}">
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_routes' and request.GET.mode == 'Jeepney' %}active{% endif %}"
+             href="{% url 'management_routes' %}?mode=Jeepney">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-bus"></i>
+            </span>
+            <span class="nav-link-title">Jeepney Management</span>
+          </a>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_routes' and request.GET.mode == 'Tricycle' %}active{% endif %}"
+             href="{% url 'management_routes' %}?mode=Tricycle">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-motorcycle"></i>
+            </span>
+            <span class="nav-link-title">Tricycle Management</span>
+          </a>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_stops' %}active{% endif %}"
+             href="{% url 'management_stops' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-signs-post"></i>
+            </span>
+            <span class="nav-link-title">Transportation Stops</span>
+          </a>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_fares' %}active{% endif %}"
+             href="{% url 'management_fares' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-ticket"></i>
+            </span>
+            <span class="nav-link-title">Fare Management</span>
+          </a>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_transfers' %}active{% endif %}"
+             href="{% url 'management_transfers' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-solid fa-diagram-project"></i>
             </span>
-            <span class="nav-link-title">Transfer Links</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_commuters' %}active{% endif %}" href="{% url 'dashboard_commuters' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa-solid fa-users"></i>
-            </span>
-            <span class="nav-link-title">Commuters</span>
+            <span class="nav-link-title">Transfer Locations</span>
           </a>
         </li>
 
         <li class="nav-item">
-          <span class="dh-nav-section">Manage</span>
+          <span class="dh-nav-section">
+            Map &amp; monitoring
+          </span>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:user_list' %}">
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_map' %}active{% endif %}"
+             href="{% url 'management_map' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-users"></i>
+              <i class="fa-solid fa-map-location-dot"></i>
             </span>
-            <span class="nav-link-title">Users</span>
+            <span class="nav-link-title">Google Maps Management</span>
           </a>
         </li>
-
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'info' %}active{% endif %}" href="{% url 'info:info_list' %}">
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_searches' %}active{% endif %}"
+             href="{% url 'management_searches' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-address-card"></i>
+              <i class="fa-solid fa-magnifying-glass"></i>
             </span>
-            <span class="nav-link-title">Info</span>
+            <span class="nav-link-title">Route Search Monitoring</span>
           </a>
         </li>
-
-        {% if user.is_authenticated %}
-        <li class="nav-item d-lg-none">
-          <a class="nav-link" href="{% url 'logout' %}">
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'management_activity' %}active{% endif %}"
+             href="{% url 'management_activity' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-sign-out-alt"></i>
+              <i class="fa-solid fa-clock-rotate-left"></i>
             </span>
-            <span class="nav-link-title">Logout</span>
+            <span class="nav-link-title">Activity Logs</span>
           </a>
         </li>
-        {% endif %}
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+             href="{% url 'dashboard' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-chart-line"></i>
+            </span>
+            <span class="nav-link-title">System Monitoring</span>
+          </a>
+        </li>
 
         <li class="nav-item mt-auto dh-nav-sidebar-footer">
           <div class="dh-user-card">
-            <a href="{% url 'users:user_list' %}" class="d-flex align-items-center gap-2 text-decoration-none text-white min-w-0 w-100">
+            <a href="{% url 'management_users' %}" class="d-flex align-items-center gap-2 text-decoration-none text-white min-w-0 w-100">
               <span class="dh-avatar">{{ user.username|first|upper }}</span>
               <span class="min-w-0 flex-grow-1">
                 <span class="dh-user-name">{{ user.username }}</span>
                 <span class="dh-user-role">
-                  {% if user.is_superuser %}Administrator{% elif user.is_authenticated %}Instructor{% endif %}
+                  {% if user.is_staff %}Administrator{% else %}Commuter{% endif %}
                 </span>
               </span>
             </a>
-            {% if user.is_authenticated %}
-            <a href="{% url 'logout' %}" class="dh-user-logout" title="Logout">
-              <i class="fas fa-sign-out-alt"></i>
-            </a>
+            {% if request.user.is_authenticated %}
+            <form method="post" action="{% url 'logout' %}" class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="dh-user-logout" title="Logout"
+                      style="background:none;border:0;padding:0;">
+                <i class="fas fa-sign-out-alt"></i>
+              </button>
+            </form>
             {% endif %}
           </div>
         </li>

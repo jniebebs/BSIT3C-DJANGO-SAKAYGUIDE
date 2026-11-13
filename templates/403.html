@@ -1,0 +1,161 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Access denied &middot; SakayGuide</title>
+  <link href="{% static 'css/tabler.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-themes.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/app-theme.css' %}" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url("https://rsms.me/inter/inter.css");
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(60% 80% at 100% 0%, rgba(214, 57, 57, 0.18) 0%, transparent 60%),
+        radial-gradient(50% 70% at 0% 100%, rgba(99, 102, 241, 0.16) 0%, transparent 55%),
+        linear-gradient(135deg, #12142c 0%, #1c1f45 55%, #2a2c68 100%);
+      color: #e6e8f4;
+    }
+    .denied-shell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .denied-wrap {
+      width: 100%;
+      max-width: 32rem;
+      text-align: center;
+    }
+    .denied-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 4.5rem;
+      height: 4.5rem;
+      border-radius: 50%;
+      font-size: 1.9rem;
+      color: #fff;
+      background: linear-gradient(135deg, #f87171, #dc2626);
+      box-shadow: 0 16px 32px -16px rgba(220, 38, 38, 0.85);
+      margin-bottom: 1.25rem;
+    }
+    .denied-code {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #f8b84e;
+    }
+    .denied-title {
+      margin: 0.35rem 0 0.5rem;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .denied-text {
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .denied-detail {
+      margin: 1rem 0 0;
+      padding: 0.75rem 1rem;
+      border-radius: 0.7rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.07);
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.78);
+      text-align: left;
+    }
+    .denied-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 1.4rem;
+    }
+    .denied-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 0.6rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      transition: background-color 0.15s ease, transform 0.15s ease;
+    }
+    .denied-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .denied-btn.is-primary {
+      border: 0;
+      background: linear-gradient(180deg, #7275f5 0%, #6366f1 100%);
+      box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.9);
+    }
+    .denied-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 1.6rem;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+    .denied-brand:hover {
+      color: rgba(255, 255, 255, 0.8);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="denied-shell">
+    <div class="denied-wrap">
+      <span class="denied-mark"><i class="fa-solid fa-lock"></i></span>
+
+      <div class="denied-code">Error 403 &middot; Access denied</div>
+      <h1 class="denied-title">{{ message|default:"Access denied" }}</h1>
+      <p class="denied-text">
+        Your account does not have permission to open this page. SakayGuide
+        keeps the administration console and the commuter navigation
+        interface completely separate.
+      </p>
+
+      {% if detail %}
+      <p class="denied-detail">
+        <i class="fa-solid fa-circle-info me-1"></i>{{ detail }}
+      </p>
+      {% endif %}
+
+      <div class="denied-actions">
+        <a href="{% url login_url_name %}" class="denied-btn is-primary">
+          <i class="fa-solid fa-right-to-bracket"></i> Sign in
+        </a>
+        <a href="{% url 'login' %}" class="denied-btn">
+          <i class="fa-solid fa-house"></i> Account portal
+        </a>
+      </div>
+
+      <a href="{% url 'login' %}" class="denied-brand">
+        <i class="fa-solid fa-shield-halved"></i> SakayGuide
+      </a>
+    </div>
+  </div>
+</body>
+</html>

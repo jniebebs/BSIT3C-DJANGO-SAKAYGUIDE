@@ -1,0 +1,382 @@
+{% extends "management/base.html" %}
+{% load static %}
+{% load management_tags %}
+
+{% block page_title %}{{ route.route_code }}{% endblock %}
+{% block page_subtitle %}{{ route.route_name }}{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_routes' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-arrow-left me-1"></i>Routes
+</a>
+<a href="{% url 'management_route_edit' route.pk %}" class="btn btn-outline-primary">
+  <i class="fa-solid fa-pen me-1"></i>Edit route
+</a>
+<form method="post" action="{% url 'management_route_toggle' route.pk %}" class="d-inline">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-outline-secondary">
+    <i class="fa-solid {% if route.status == 'active' %}fa-toggle-on{% else %}fa-toggle-off{% endif %} me-1"></i>
+    {% if route.status == 'active' %}Deactivate{% else %}Activate{% endif %}
+  </button>
+</form>
+<form method="post" action="{% url 'management_route_delete' route.pk %}" class="d-inline"
+      data-confirm="Delete or deactivate route &quot;{{ route.route_code }}&quot;? Routes with stops, fares, landmarks or transfers are deactivated to preserve history.">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-outline-danger" title="Delete route">
+    <i class="fa-solid fa-trash"></i>
+  </button>
+</form>
+{% endblock %}
+
+{% block admin_content %}
+
+<section class="mgmt-route-banner mb-3">
+  <div class="mgmt-route-banner-main">
+    <span class="mgmt-route-code">{{ route.route_code }}</span>
+    <div>
+      <h2>{{ route.route_name }}</h2>
+      <p>{{ route.route_description|default:"No route description recorded." }}</p>
+    </div>
+  </div>
+  <div class="mgmt-route-banner-meta">
+    <span class="badge bg-purple-lt"><i class="fa-solid fa-bus me-1"></i>{{ route.transport_type.transport_name }}</span>
+    <span class="badge {{ route.status|status_class }}">{{ route.status|title }}</span>
+    <span class="badge bg-secondary-lt"><i class="fa-regular fa-clock me-1"></i>{{ route.estimated_travel_time }} min</span>
+    <span class="badge bg-secondary-lt"><i class="fa-solid fa-signs-post me-1"></i>{{ stops|length }} stop{{ stops|length|pluralize }}</span>
+    <span class="badge {% if active_fares %}bg-green-lt{% else %}bg-orange-lt{% endif %}">
+      <i class="fa-solid fa-ticket me-1"></i>{{ active_fares|length }} active fare{{ active_fares|length|pluralize }}
+    </span>
+  </div>
+</section>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Route path</h3>
+          <p class="mgmt-card-sub">{{ route.origin.location_name }} &rarr; {{ route.destination.location_name }}</p>
+        </div>
+        {% if google_maps.enabled %}
+        <span class="badge bg-green-lt">Google Maps</span>
+        {% else %}
+        <span class="badge bg-secondary-lt">Map key missing</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if google_maps.enabled %}
+        <div id="route-detail-map" class="mgmt-map mgmt-route-map" aria-label="Route path map"></div>
+        {{ google_maps|json_script:"google-maps-config" }}
+        {{ route_map_data|json_script:"route-map-data" }}
+        <div class="mgmt-map-legend">
+          <span><i class="fa-solid fa-circle text-green"></i>Origin</span>
+          <span><i class="fa-solid fa-circle text-blue"></i>Stop</span>
+          <span><i class="fa-solid fa-circle text-amber"></i>Transfer point</span>
+          <span><i class="fa-solid fa-circle text-red"></i>Destination</span>
+        </div>
+        {% else %}
+        <div class="mgmt-map-placeholder">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <h4>Map preview needs a Google Maps key</h4>
+          <p>Add <code>GOOGLE_MAPS_API_KEY</code> to <code>.env</code> to draw
+            the route path from the recorded stop coordinates. Stops and
+            coordinates are still listed below.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-4">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Journey endpoints</h3>
+      </div>
+      <div class="card-body">
+        <div class="mgmt-endpoint is-origin">
+          <span class="mgmt-endpoint-dot"></span>
+          <div>
+            <span class="mgmt-endpoint-label">Origin / boarding</span>
+            <strong>{{ route.origin.location_name }}</strong>
+            <small>{{ route.origin.barangay.barangay_name }}</small>
+          </div>
+        </div>
+        <div class="mgmt-endpoint-line"></div>
+        <div class="mgmt-endpoint is-destination">
+          <span class="mgmt-endpoint-dot"></span>
+          <div>
+            <span class="mgmt-endpoint-label">Destination / drop-off</span>
+            <strong>{{ route.destination.location_name }}</strong>
+            <small>{{ route.destination.barangay.barangay_name }}</small>
+          </div>
+        </div>
+
+        <div class="mgmt-detail-actions">
+          <a href="{% url 'management_stop_create' %}?route={{ route.pk }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-plus me-1"></i>Add stop
+          </a>
+          <a href="{% url 'management_fare_create' %}?route={{ route.pk }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-ticket me-1"></i>Add fare
+          </a>
+          <a href="{% url 'management_transfer_create' %}?route={{ route.pk }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-diagram-project me-1"></i>Add transfer
+          </a>
+        </div>
+
+        {% if route.origin.latitude and route.origin.longitude and route.destination.latitude and route.destination.longitude %}
+        <div class="mgmt-route-ready">
+          <i class="fa-solid fa-circle-check"></i>
+          Both endpoints have coordinates, so this route can be drawn on the commuter map.
+        </div>
+        {% else %}
+        <div class="mgmt-route-warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          One or both endpoints are missing coordinates.
+          <a href="{% url 'management_location_edit' route.origin.pk %}">Fix origin</a>
+          &middot;
+          <a href="{% url 'management_location_edit' route.destination.pk %}">Fix destination</a>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{# ---------- Stops ---------- #}
+<section class="card mgmt-card mb-3">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title mb-0">Ordered stops</h3>
+      <p class="mgmt-card-sub">Boarding points, landmarks and drop-off points in travel order.</p>
+    </div>
+    <a href="{% url 'management_stop_create' %}?route={{ route.pk }}" class="btn btn-sm btn-primary">
+      <i class="fa-solid fa-plus me-1"></i>Add stop
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th class="mgmt-order-col">#</th>
+          <th>Location</th>
+          <th>Barangay</th>
+          <th>Coordinates</th>
+          <th class="text-center">Transfer point</th>
+          <th class="text-center">Stop time</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stop in stops %}
+        <tr>
+          <td><span class="mgmt-order">{{ stop.stop_order }}</span></td>
+          <td>
+            <div class="fw-semibold">{{ stop.location.location_name }}</div>
+            <div class="text-muted small">{{ stop.location.location_type|title }}</div>
+          </td>
+          <td>{{ stop.location.barangay.barangay_name }}</td>
+          <td>
+            {% if stop.location.latitude and stop.location.longitude %}
+            <span class="text-muted small">{{ stop.location.latitude|floatformat:5 }}, {{ stop.location.longitude|floatformat:5 }}</span>
+            {% else %}
+            <span class="badge bg-orange-lt">Missing</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if stop.is_transfer_point %}
+            <span class="badge bg-amber-lt"><i class="fa-solid fa-right-left me-1"></i>Yes</span>
+            {% else %}
+            <span class="text-muted">No</span>
+            {% endif %}
+          </td>
+          <td class="text-center">{{ stop.estimated_stop_time }} min</td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_stop_edit' stop.pk %}" class="btn btn-sm btn-outline-primary" title="Edit stop">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_stop_delete' stop.pk %}" class="d-inline"
+                    data-confirm="Remove &quot;{{ stop.location.location_name }}&quot; from {{ route.route_code }}?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove stop">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="mgmt-empty">
+              <i class="fa-solid fa-signs-post"></i>
+              <h3>No stops recorded</h3>
+              <p>Add the boarding and drop-off points in travel order.</p>
+              <a href="{% url 'management_stop_create' %}?route={{ route.pk }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus me-1"></i>Add the first stop
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    {# ---------- Fares ---------- #}
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Fares</h3>
+          <p class="mgmt-card-sub">Regular, student, senior and other categories.</p>
+        </div>
+        <a href="{% url 'management_fare_create' %}?route={{ route.pk }}" class="btn btn-sm btn-primary">
+          <i class="fa-solid fa-plus me-1"></i>Add fare
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr><th>Category</th><th class="text-end">Total fare</th><th>Effective</th><th>Status</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for fare in fares %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ fare.fare_type.fare_type_name }}</div>
+                <div class="text-muted small">&#8369;{{ fare.minimum_fare|floatformat:2 }} min + &#8369;{{ fare.fare_per_km|floatformat:2 }}/km</div>
+              </td>
+              <td class="text-end fw-semibold">&#8369;{{ fare.total_estimated_fare|floatformat:2 }}</td>
+              <td class="text-nowrap">{{ fare.effective_date|date:"M j, Y" }}</td>
+              <td><span class="badge {{ fare.status|status_class }}">{{ fare.status|title }}</span></td>
+              <td class="text-end">
+                <div class="mgmt-row-actions">
+                  <a href="{% url 'management_fare_edit' fare.pk %}" class="btn btn-sm btn-outline-primary" title="Edit fare">
+                    <i class="fa-solid fa-pen"></i>
+                  </a>
+                  <form method="post" action="{% url 'management_fare_delete' fare.pk %}" class="d-inline"
+                        data-confirm="Delete the {{ fare.fare_type.fare_type_name }} fare for {{ route.route_code }}?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete fare">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No fares recorded for this route.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    {# ---------- Outgoing transfers ---------- #}
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Transfers from this route</h3>
+          <p class="mgmt-card-sub">Where commuters can change to another route.</p>
+        </div>
+        <a href="{% url 'management_transfer_create' %}?route={{ route.pk }}" class="btn btn-sm btn-primary">
+          <i class="fa-solid fa-plus me-1"></i>Add
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>To route</th><th>Transfer at</th><th class="text-end">Actions</th></tr></thead>
+          <tbody>
+            {% for transfer in transfers_from %}
+            <tr>
+              <td>
+                <a href="{% url 'management_route_detail' transfer.to_route.pk %}" class="fw-semibold text-decoration-none">{{ transfer.to_route.route_code }}</a>
+                <div class="text-muted small">{{ transfer.to_route.route_name }}</div>
+              </td>
+              <td>
+                <div class="small">{{ transfer.transfer_location.location_name }}</div>
+                <div class="text-muted small">{{ transfer.estimated_transfer_time }} min &middot; +&#8369;{{ transfer.additional_estimated_fare|floatformat:2 }}</div>
+              </td>
+              <td class="text-end">
+                <div class="mgmt-row-actions">
+                  <a href="{% url 'management_transfer_edit' transfer.pk %}" class="btn btn-sm btn-outline-primary" title="Edit transfer">
+                    <i class="fa-solid fa-pen"></i>
+                  </a>
+                  <form method="post" action="{% url 'management_transfer_delete' transfer.pk %}" class="d-inline"
+                        data-confirm="Delete the transfer from {{ route.route_code }} to {{ transfer.to_route.route_code }}?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete transfer">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No outgoing transfers.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+{# ---------- Incoming transfers ---------- #}
+<section class="card mgmt-card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title mb-0">Transfers into this route</h3>
+      <p class="mgmt-card-sub">Connections created by other routes that feed into {{ route.route_code }}.</p>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead><tr><th>From route</th><th>Transfer at</th><th>Instructions</th><th class="text-end">Actions</th></tr></thead>
+      <tbody>
+        {% for transfer in transfers_to %}
+        <tr>
+          <td>
+            <a href="{% url 'management_route_detail' transfer.from_route.pk %}" class="fw-semibold text-decoration-none">{{ transfer.from_route.route_code }}</a>
+            <div class="text-muted small">{{ transfer.from_route.route_name }}</div>
+          </td>
+          <td>
+            <div class="small">{{ transfer.transfer_location.location_name }}</div>
+            <div class="text-muted small">{{ transfer.estimated_transfer_time }} min &middot; +&#8369;{{ transfer.additional_estimated_fare|floatformat:2 }}</div>
+          </td>
+          <td class="small mgmt-clip" title="{{ transfer.transfer_instructions }}">{{ transfer.transfer_instructions|default:"-" }}</td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_transfer_edit' transfer.pk %}" class="btn btn-sm btn-outline-primary" title="Edit transfer">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_transfer_delete' transfer.pk %}" class="d-inline"
+                    data-confirm="Delete the transfer from {{ transfer.from_route.route_code }} to {{ route.route_code }}?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete transfer">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted py-4">No transfers feed into this route.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block admin_js %}
+{% if google_maps.enabled %}
+<script src="{% static 'js/admin-maps-loader.js' %}?v=1"></script>
+<script src="{% static 'js/admin-map.js' %}?v=1"></script>
+{% endif %}
+{% endblock %}

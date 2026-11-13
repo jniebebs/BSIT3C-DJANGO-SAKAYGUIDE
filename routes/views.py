@@ -1,11 +1,12 @@
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render, reverse
 from django.utils.crypto import get_random_string
 from django.views.decorators.http import require_GET, require_POST
+
+from apps.core.permissions import commuter_required
 
 from .forms import RouteSearchForm, SaveRouteForm
 from .models import (
@@ -106,8 +107,15 @@ def _record_search(user, origin, destination):
         )
 
 
+@commuter_required
 def route_search(request):
-    """Main 'Where do you want to go?' page (search + results)."""
+    """Main 'Where do you want to go?' page (search + results).
+
+    Find My Route belongs to commuter accounts only. Administrators manage
+    the same transportation records from the administration console, so the
+    commuter navigation interface is never opened with an administrator
+    session.
+    """
     # Treat the form as bound only when a location was actually submitted,
     # so visiting /plan/?sort=fare shows the clean search page.
     bound = bool(request.GET.get('origin') or request.GET.get('destination'))
@@ -179,6 +187,7 @@ def route_search(request):
 
 
 @require_GET
+@commuter_required
 def journey_map_json(request):
     """JSON endpoint for one journey's map information.
 
@@ -232,6 +241,7 @@ def journey_map_json(request):
 
 
 @require_GET
+@commuter_required
 def destination_summaries_json(request):
     """JSON endpoint: fare/time from a starting location to every other one.
 
@@ -259,7 +269,7 @@ def destination_summaries_json(request):
 
 
 @require_POST
-@login_required(login_url='login')
+@commuter_required
 def save_route(request):
     """Save an origin -> destination pair for the signed-in user."""
     form = SaveRouteForm(request.POST)

@@ -75,3 +75,85 @@ The system will have the following limitations:
 • Traffic and Schedule Information: The system will not provide guaranteed real-time traffic conditions, vehicle arrival times, or live schedule updates.
 • Online Payments and Notifications: The system will not include online payment processing or SMS notification services in the current development scope.
 • Data Maintenance: The accuracy and usefulness of the information will depend on periodic review and updating of route, location, stop, and fare records by authorized users.
+
+
+ACCOUNT SYSTEM AND ACCESS CONTROL
+
+SakayGuide has exactly two account types, both built on Django's built-in
+authentication system. The single role flag is ``User.is_staff``: a staff
+account is an ADMINISTRATOR with full management permissions, every other
+account is a COMMUTER. There is no separate super administrator role and no
+separate super administrator dashboard. No public form exposes a role field,
+so self-registration can never produce an administrator.
+
+Administrator
+• Sign in at ``/administrator/login/`` (username or e-mail address).
+• Lands on the admin dashboard at ``/management/``.
+• Full system control: creates, edits, activates, deactivates and deletes
+  commuter accounts, creates and manages other administrator accounts, and
+  assigns either role.
+• Manages locations and destinations, jeepney and tricycle routes, boarding
+  and drop-off points, transportation stops and terminals, transfer locations,
+  fares, estimated travel times and the Google Maps coordinate registry.
+• Monitors commuter route searches, reads the administrator activity log,
+  opens the management reports and the system monitoring console.
+• Cannot open Find My Route, the Google Maps navigation view or the live GPS
+  interface.
+
+Commuter
+• Self-registers at ``/commuter/register/`` and signs in at
+  ``/commuter/login/`` (username or e-mail address).
+• Lands on the commuter dashboard at ``/commuter/``.
+• Uses Find My Route at ``/plan/`` with the Google Maps view, the live GPS
+  marker, the step-by-step travel guide, the estimated fare breakdown and the
+  estimated travel time.
+• Reviews their own recent searches and saved routes, edits their own
+  profile, changes their own password and signs out.
+• Cannot open any administration URL, account record or transportation
+  record.
+
+Role unification
+Existing accounts are preserved exactly as they are. Accounts that were
+created as Django superusers keep their account, their password and their
+permissions, and are reported as administrators everywhere in the interface.
+The Django ``is_superuser`` flag is a framework permission (it opens the
+built-in Django admin site at ``/admin/``); it is never granted or revoked
+through the SakayGuide interface, which only ever assigns the administrator
+or the commuter role. Accounts created in the interface never receive the
+Django superuser flag.
+
+Two safety rules protect the console from locking itself out: an
+administrator cannot deactivate or demote their own account, and the last
+active administrator can never be deactivated or demoted.
+
+Server-side enforcement
+``apps/core/permissions.py`` holds the two guards used across the project:
+
+* ``administrator_required`` protects every management URL and backend view.
+* ``commuter_required`` protects Find My Route, the map and live GPS
+  endpoints, and every commuter account page.
+
+Unauthenticated visitors are redirected to the sign-in page of the area they
+tried to reach. A signed-in user of the wrong role receives HTTP 403 with the
+styled access-denied page, so hiding a navigation link is never the only
+protection. CSRF protection, Django password hashing, role validation during
+authentication and server-enforced role rules on the account forms keep the
+two account types apart.
+
+Creating the first administrator
+    python manage.py createsuperuser
+
+The command creates the initial highest-privilege administrator account: an
+active staff account with the Django superuser flag, which the application
+treats as an administrator like every other staff account. The project also
+ships ``python manage.py create_admin`` for a guided bootstrap that mirrors
+the account into the SakayGuide audit trail. No credentials are hard-coded,
+and no administrator can be created from the public registration form.
+
+Running the tests
+    python manage.py test
+
+The suite covers both account types, the role separation, the unified
+administrator role, the protected URLs and the account forms. The SakayGuide
+transit database is mirrored for the duration of a test run, so the tests
+never write to the live transit tables.

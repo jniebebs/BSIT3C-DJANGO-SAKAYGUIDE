@@ -18,7 +18,7 @@
       aria-controls="sidebar-menu"
       aria-expanded="false"
       aria-label="Toggle navigation"
-      >
+    >
       <span class="navbar-toggler-icon"></span>
     </button>
 
@@ -37,21 +37,34 @@
           </a>
         </li>
 
+        <li class="nav-item">
+          <span class="dh-nav-section">Accounts</span>
+        </li>
+
         <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.url_name == 'login' %}active{% endif %}" href="{% url 'login' %}">
+          <a class="nav-link {% if request.resolver_match.url_name == 'commuter_login' %}active{% endif %}" href="{% url 'commuter_login' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-sign-in-alt"></i>
+              <i class="fas fa-right-to-bracket"></i>
             </span>
-            <span class="nav-link-title">Login</span>
+            <span class="nav-link-title">Commuter sign in</span>
           </a>
         </li>
 
         <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.url_name == 'register' %}active{% endif %}" href="{% url 'register' %}">
+          <a class="nav-link {% if request.resolver_match.url_name == 'commuter_register' %}active{% endif %}" href="{% url 'commuter_register' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fas fa-user-plus"></i>
             </span>
-            <span class="nav-link-title">Register</span>
+            <span class="nav-link-title">Register as commuter</span>
+          </a>
+        </li>
+
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'admin_login' %}active{% endif %}" href="{% url 'admin_login' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-user-shield"></i>
+            </span>
+            <span class="nav-link-title">Administrator sign in</span>
           </a>
         </li>
       </ul>

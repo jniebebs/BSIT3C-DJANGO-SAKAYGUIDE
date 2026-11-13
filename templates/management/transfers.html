@@ -1,0 +1,132 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Transfer connections{% endblock %}
+{% block page_subtitle %}Shared stops where commuters can change from one route to another.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_transfer_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add transfer
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-4">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-diagram-project"></i></span>
+      <div><span>Total transfers</span><strong>{{ total_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-route"></i></span>
+      <div><span>Routes involved</span><strong>{{ routes|length }}</strong></div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-filter"></i></span>
+      <div><span>Filter results</span><strong>{{ transfers.paginator.count }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-info d-flex align-items-start gap-2 py-2" role="alert">
+  <i class="fa-solid fa-circle-info mt-1"></i>
+  <div class="small">
+    A transfer location must already be a stop on <strong>both</strong> routes.
+    Add the shared stop to each route first, then create the connection here.
+  </div>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search route, location or instructions" aria-label="Search transfers">
+      </div>
+      <select name="route" class="form-select" aria-label="Filter by route">
+        <option value="">All routes</option>
+        {% for route in routes %}
+        <option value="{{ route.pk }}" {% if route_id == route.pk|stringformat:"s" %}selected{% endif %}>
+          {{ route.route_code }} &mdash; {{ route.route_name }}
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or route_id %}
+      <a href="{% url 'management_transfers' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>From route</th>
+          <th>To route</th>
+          <th>Transfer at</th>
+          <th>Instructions</th>
+          <th class="text-center">Time</th>
+          <th class="text-end">Extra fare</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for transfer in transfers %}
+        <tr>
+          <td>
+            <a href="{% url 'management_route_detail' transfer.from_route.pk %}" class="fw-semibold text-decoration-none">{{ transfer.from_route.route_code }}</a>
+            <div class="text-muted small mgmt-clip" title="{{ transfer.from_route.route_name }}">{{ transfer.from_route.route_name }}</div>
+          </td>
+          <td>
+            <a href="{% url 'management_route_detail' transfer.to_route.pk %}" class="fw-semibold text-decoration-none">{{ transfer.to_route.route_code }}</a>
+            <div class="text-muted small mgmt-clip" title="{{ transfer.to_route.route_name }}">{{ transfer.to_route.route_name }}</div>
+          </td>
+          <td>{{ transfer.transfer_location.location_name }}</td>
+          <td class="small mgmt-clip" title="{{ transfer.transfer_instructions }}">{{ transfer.transfer_instructions|default:"-" }}</td>
+          <td class="text-center">{{ transfer.estimated_transfer_time }} min</td>
+          <td class="text-end">&#8369;{{ transfer.additional_estimated_fare|floatformat:2 }}</td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_transfer_edit' transfer.pk %}" class="btn btn-sm btn-outline-primary" title="Edit transfer">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_transfer_delete' transfer.pk %}" class="d-inline"
+                    data-confirm="Delete the transfer from {{ transfer.from_route.route_code }} to {{ transfer.to_route.route_code }}?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete transfer">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="mgmt-empty">
+              <i class="fa-solid fa-diagram-project"></i>
+              <h3>No transfers match those filters</h3>
+              <p>Create a connection between two routes that share a stop.</p>
+              <a href="{% url 'management_transfers' %}" class="btn btn-outline-primary btn-sm">Clear filters</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if transfers.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=transfers %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

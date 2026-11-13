@@ -1,0 +1,130 @@
+{% extends "commuter/base.html" %}
+{% load static %}
+
+{% block commuter_content %}
+
+<div class="cm-page-head mb-3">
+  <div>
+    <div class="cm-pretitle">My account</div>
+    <h1 class="cm-title">Recent searches</h1>
+    <p class="cm-subtitle">
+      The routes you looked up recently. Tap a journey to run it again with
+      the current fares and travel times.
+    </p>
+  </div>
+  <div class="cm-head-actions">
+    <a href="{% url 'routes:route_search' %}" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-magnifying-glass-location me-1"></i> New search
+    </a>
+  </div>
+</div>
+
+<div class="row row-deck g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #8b5cf6;">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Search history</h3>
+            <div class="card-subtitle text-muted">
+              Only your own searches are shown
+            </div>
+          </div>
+        </div>
+        <span class="ms-auto badge text-bg-purple">
+          {{ recent_searches|length }} search{{ recent_searches|length|pluralize }}
+        </span>
+      </div>
+      <div class="card-body">
+        {% if recent_searches %}
+        <div class="dh-timeline">
+          {% for search in recent_searches %}
+          <div class="dh-timeline-item">
+            <span class="dh-timeline-dot"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <div class="flex-grow-1 min-w-0">
+              <div class="dh-timeline-title">
+                <span class="text-truncate">{{ search.origin }}</span>
+                <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
+                <span class="text-truncate">{{ search.destination }}</span>
+              </div>
+              <div class="dh-timeline-meta">
+                {{ search.searched_at|timesince }} ago
+                &middot;
+                <span title="{{ search.searched_at|date:'M j, Y H:i' }}">
+                  {{ search.searched_at|date:"M j, Y H:i" }}
+                </span>
+              </div>
+            </div>
+            <a class="btn btn-sm btn-outline-primary ms-auto align-self-center"
+               href="{% url 'routes:route_search' %}?origin={{ search.origin_id }}&destination={{ search.destination_id }}">
+              <i class="fa-solid fa-redo me-1"></i> Run again
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <div class="fw-semibold">No searches yet</div>
+          <div class="small">
+            Search for a route and it will be saved here so you can run it
+            again later.
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #06b6d4;">
+            <i class="fa-solid fa-bookmark"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Saved routes</h3>
+            <div class="card-subtitle text-muted">Journeys you kept for later</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if saved_routes %}
+        <div class="row g-2">
+          {% for route in saved_routes %}
+          <div class="col-12">
+            <div class="cm-saved-route">
+              <span class="dh-quick-action-icon"><i class="fa-solid fa-bookmark"></i></span>
+              <span class="min-w-0">
+                <span class="cm-saved-name">{{ route.nickname|default:route.origin }}</span>
+                <span class="cm-saved-path">
+                  {{ route.origin }} <i class="fa-solid fa-arrow-right"></i> {{ route.destination }}
+                </span>
+              </span>
+              <a class="btn btn-sm btn-outline-primary ms-auto align-self-center"
+                 href="{% url 'routes:route_search' %}?origin={{ route.origin_id }}&destination={{ route.destination_id }}">
+                <i class="fa-solid fa-redo me-1"></i> Run again
+              </a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-bookmark"></i></span>
+          <div class="fw-semibold">No saved routes</div>
+          <div class="small">
+            Save a journey from the route results page to keep it here.
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

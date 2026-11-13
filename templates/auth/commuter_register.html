@@ -1,0 +1,166 @@
+{% extends "auth/base.html" %}
+{% load static %}
+
+{% block page_title %}Create a commuter account &middot; SakayGuide{% endblock %}
+{% block body_class %}is-commuter{% endblock %}
+{% block brand_sub %}Commuter Portal{% endblock %}
+
+{% block content %}
+<div class="card sg-card">
+  <div class="card-body">
+    <div class="sg-eyebrow">
+      <i class="fa-solid fa-user-plus"></i> New commuter account
+    </div>
+    <h1>Create your account</h1>
+    <p class="sg-subtitle">
+      Commuter accounts can find routes, use live GPS and Google Maps, and
+      check estimated fares and travel times.
+    </p>
+
+    <div class="sg-banner">
+      <i class="fa-solid fa-shield-halved"></i>
+      <span>
+        New accounts always receive the <strong>commuter</strong> role.
+        Administrator access is granted separately by an administrator.
+      </span>
+    </div>
+
+    {% if messages %}
+    <div class="mb-3" aria-live="polite">
+      {% for message in messages %}
+      <div class="alert sg-alert mb-2
+        {% if message.tags == 'success' %}alert-success
+        {% elif message.tags == 'warning' %}alert-warning
+        {% elif message.tags == 'error' %}alert-danger
+        {% else %}alert-info{% endif %}" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger sg-alert mb-3" role="alert">
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.full_name.id_for_label }}">
+          {{ form.full_name.label }}
+        </label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-regular fa-user"></i></span>
+          {{ form.full_name }}
+          {% if form.full_name.errors %}
+          <div class="invalid-feedback d-block">{{ form.full_name.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.username.id_for_label }}">
+          {{ form.username.label }}
+        </label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-solid fa-at"></i></span>
+          {{ form.username }}
+          {% if form.username.errors %}
+          <div class="invalid-feedback d-block">{{ form.username.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.email.id_for_label }}">
+          {{ form.email.label }}
+        </label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-regular fa-envelope"></i></span>
+          {{ form.email }}
+          {% if form.email.errors %}
+          <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.password.id_for_label }}">
+          {{ form.password.label }}
+        </label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-solid fa-lock"></i></span>
+          {{ form.password }}
+          <button class="btn btn-outline-secondary" type="button" id="toggle-password"
+                  aria-label="Show password" aria-pressed="false">
+            <i class="fa-regular fa-eye"></i>
+          </button>
+          {% if form.password.errors %}
+          <div class="invalid-feedback d-block">{{ form.password.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.confirm_password.id_for_label }}">
+          {{ form.confirm_password.label }}
+        </label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fa-solid fa-lock"></i></span>
+          {{ form.confirm_password }}
+          <button class="btn btn-outline-secondary" type="button" id="toggle-confirm"
+                  aria-label="Show password" aria-pressed="false">
+            <i class="fa-regular fa-eye"></i>
+          </button>
+          {% if form.confirm_password.errors %}
+          <div class="invalid-feedback d-block">{{ form.confirm_password.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100 sg-submit">
+        <i class="fa-solid fa-user-plus me-1"></i> Create commuter account
+      </button>
+    </form>
+
+    <div class="sg-meta">
+      <span><i class="fa-solid fa-lock me-1"></i>CSRF protected form</span>
+      <span><a href="{% url 'commuter_login' %}">Already registered? Sign in</a></span>
+    </div>
+  </div>
+</div>
+
+<p class="sg-foot">
+  SakayGuide &middot; Kabankalan City transit information
+</p>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    function wire(buttonId, inputId) {
+      var button = document.getElementById(buttonId);
+      var input = document.getElementById(inputId);
+      if (!button || !input) {
+        return;
+      }
+      button.addEventListener('click', function () {
+        var reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        button.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+        button.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+        var icon = button.querySelector('i');
+        if (icon) {
+          icon.className = reveal ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        }
+      });
+    }
+
+    wire('toggle-password', '{{ form.password.id_for_label }}');
+    wire('toggle-confirm', '{{ form.confirm_password.id_for_label }}');
+  })();
+</script>
+{% endblock %}

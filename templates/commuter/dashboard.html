@@ -1,0 +1,327 @@
+{% extends "commuter/base.html" %}
+{% load static %}
+
+{% block commuter_content %}
+
+{# ---------- WELCOME HERO ---------- #}
+<section class="dh-hero cm-hero mb-3" aria-label="Commuter welcome">
+  <div class="dh-hero-inner d-flex flex-wrap align-items-start justify-content-between gap-4">
+    <div class="flex-grow-1" style="min-width: 16rem;">
+      <div class="dh-hero-pretitle">
+        <i class="fa-solid fa-compass"></i>
+        Commuter portal &middot; {% now "l, F j, Y" %}
+      </div>
+      <h1 class="dh-hero-title">
+        {% now "H" as hour %}
+        {% if hour < 12 %}Good morning{% elif hour < 18 %}Good afternoon{% else %}Good evening{% endif %},
+        {{ user.first_name|default:user.username }}
+      </h1>
+      <p class="dh-hero-sub mb-0">
+        Find the fastest jeepney or tricycle for your trip, check the estimated
+        fare and follow the step-by-step travel guide on Google Maps.
+      </p>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <span class="dh-hero-meta-badge">
+          <i class="fa-solid fa-route"></i>
+          {{ snapshot.active_routes }} active routes
+        </span>
+        <span class="dh-hero-meta-badge">
+          <i class="fa-solid fa-location-dot"></i>
+          {{ snapshot.active_locations }} locations
+        </span>
+        <span class="dh-hero-meta-badge">
+          <i class="fa-solid fa-bus"></i>
+          {{ snapshot.transport_modes }} transport modes
+        </span>
+      </div>
+    </div>
+
+    <div class="dh-hero-actions">
+      <a href="{% url 'routes:route_search' %}" class="btn btn-accent">
+        <i class="fa-solid fa-magnifying-glass-location"></i> Find my route
+      </a>
+      <a href="{% url 'commuter_profile' %}" class="btn btn-light">
+        <i class="fa-regular fa-user"></i> My profile
+      </a>
+    </div>
+  </div>
+</section>
+
+{% if not snapshot.connected %}
+<div class="alert alert-danger" role="alert">
+  <i class="fa-solid fa-triangle-exclamation me-2"></i>
+  The SakayGuide transit database is unavailable right now. Route information
+  cannot be loaded at the moment.
+</div>
+{% endif %}
+
+<div class="row row-deck g-3 mb-3">
+  {# ---------- QUICK ROUTE SEARCH ---------- #}
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon"><i class="fa-solid fa-magnifying-glass-location"></i></span>
+          <div>
+            <h3 class="card-title mb-0">Quick route search</h3>
+            <div class="card-subtitle text-muted">
+              Pick a starting point and a destination in Kabankalan City
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <form method="get" action="{% url 'routes:route_search' %}" class="cm-quick-search">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="cm-origin">From</label>
+              <select class="form-select" name="origin" id="cm-origin" required>
+                <option value="">Choose a starting point...</option>
+                {% for location in locations %}
+                <option value="{{ location.location_id }}">
+                  {{ location.location_name }} &mdash; {{ location.barangay__barangay_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="cm-destination">To</label>
+              <select class="form-select" name="destination" id="cm-destination" required>
+                <option value="">Choose a destination...</option>
+                {% for location in locations %}
+                <option value="{{ location.location_id }}">
+                  {{ location.location_name }} &mdash; {{ location.barangay__barangay_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+              <button type="submit" class="btn btn-primary px-4">
+                <i class="fa-solid fa-route me-1"></i> Find my route
+              </button>
+              <a href="{% url 'routes:route_search' %}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-crosshairs me-1"></i> Use my GPS location
+              </a>
+              <span class="text-muted small">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                The map, live GPS and travel guide open on the next screen.
+              </span>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ---------- RECENT SEARCHES ---------- #}
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #8b5cf6;">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">My recent searches</h3>
+            <div class="card-subtitle text-muted">Your last route lookups</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if recent_searches %}
+        <div class="dh-timeline">
+          {% for search in recent_searches %}
+          <div class="dh-timeline-item">
+            <span class="dh-timeline-dot"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <div class="flex-grow-1 min-w-0">
+              <div class="dh-timeline-title">
+                <span class="text-truncate">{{ search.origin }}</span>
+                <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
+                <span class="text-truncate">{{ search.destination }}</span>
+              </div>
+              <div class="dh-timeline-meta">
+                {{ search.searched_at|timesince }} ago
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <div class="fw-semibold">No searches yet</div>
+          <div class="small">
+            Search for a route and it will show up here.
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row row-deck g-3 mb-3">
+  {# ---------- POPULAR DESTINATIONS ---------- #}
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #f59e0b;">
+            <i class="fa-solid fa-trophy"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Popular destinations</h3>
+            <div class="card-subtitle text-muted">Where commuters travel most</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if popular %}
+        <div class="dh-rank-list">
+          {% for place in popular %}
+          <div class="dh-rank-row">
+            <span class="dh-rank-index">{{ forloop.counter }}</span>
+            <div class="dh-rank-body">
+              <div class="d-flex align-items-center justify-content-between gap-2">
+                <span class="dh-rank-name" title="{{ place.location_name }}">
+                  {{ place.location_name }}
+                </span>
+                <a class="dh-rank-meta text-nowrap"
+                   href="{% url 'routes:route_search' %}?destination={{ place.location_id }}">
+                  <i class="fa-solid fa-arrow-right"></i>
+                </a>
+              </div>
+              <div class="dh-rank-meta">{{ place.barangay.barangay_name }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-trophy"></i></span>
+          <div class="fw-semibold">No destination data yet</div>
+          <div class="small">Popular destinations appear after commuters search.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ---------- AVAILABLE TRANSPORTATION ---------- #}
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #22c55e;">
+            <i class="fa-solid fa-bus"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">Available transportation</h3>
+            <div class="card-subtitle text-muted">
+              {{ snapshot.active_routes }} active routes &middot;
+              {{ jeepney_options|length }} jeepney &middot;
+              {{ tricycle_options|length }} tricycle
+            </div>
+          </div>
+        </div>
+        <a href="{% url 'routes:route_search' %}" class="ms-auto dh-panel-link">
+          View all <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </div>
+      <div class="card-body">
+        {% if options %}
+        <div class="row g-2">
+          {% for option in options %}
+          <div class="col-sm-6 col-xl-4">
+            <article class="cm-option-card h-100">
+              <div class="cm-option-head">
+                <span class="cm-option-icon
+                  {% if 'jeep' in option.transport_key %}is-jeepney
+                  {% elif 'tricycle' in option.transport_key %}is-tricycle
+                  {% else %}is-other{% endif %}">
+                  <i class="fa-solid {% if 'jeep' in option.transport_key %}fa-bus
+                    {% elif 'tricycle' in option.transport_key %}fa-motorcycle
+                    {% else %}fa-taxi{% endif %}"></i>
+                </span>
+                <div class="min-w-0">
+                  <span class="cm-option-mode">{{ option.transport_name }}</span>
+                  <span class="cm-option-code">{{ option.route_code }}</span>
+                </div>
+              </div>
+              <div class="cm-option-route">
+                <span class="cm-option-place">{{ option.boarding_point }}</span>
+                <i class="fa-solid fa-arrow-right cm-option-arrow"></i>
+                <span class="cm-option-place">{{ option.dropoff_point }}</span>
+              </div>
+              <div class="cm-option-meta">
+                {% if option.fare is not None %}
+                <span class="cm-option-fare">
+                  <i class="fa-solid fa-ticket"></i> &#8369;{{ option.fare }}
+                </span>
+                {% else %}
+                <span class="cm-option-fare is-muted">
+                  <i class="fa-solid fa-ticket"></i> No fare
+                </span>
+                {% endif %}
+                <span><i class="fa-solid fa-clock"></i> {{ option.minutes }} min</span>
+                <span><i class="fa-solid fa-signs-post"></i> {{ option.stops_count }}</span>
+                {% if option.distance_km %}
+                <span><i class="fa-solid fa-ruler-horizontal"></i> {{ option.distance_km }} km</span>
+                {% endif %}
+              </div>
+            </article>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-bus"></i></span>
+          <div class="fw-semibold">No active routes</div>
+          <div class="small">
+            Routes published by the administrators will appear here.
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---------- SAVED ROUTES ---------- #}
+{% if saved_routes %}
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="dh-panel-title">
+      <span class="dh-panel-icon" style="--dh-panel-color: #06b6d4;">
+        <i class="fa-solid fa-bookmark"></i>
+      </span>
+      <div>
+        <h3 class="card-title mb-0">My saved routes</h3>
+        <div class="card-subtitle text-muted">Journeys you kept for later</div>
+      </div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-2">
+      {% for route in saved_routes %}
+      <div class="col-md-6 col-xl-4">
+        <a class="cm-saved-route"
+           href="{% url 'routes:route_search' %}?origin={{ route.origin_id }}&destination={{ route.destination_id }}">
+          <span class="dh-quick-action-icon"><i class="fa-solid fa-bookmark"></i></span>
+          <span class="min-w-0">
+            <span class="cm-saved-name">
+              {{ route.nickname|default:route.origin }}
+            </span>
+            <span class="cm-saved-path">
+              {{ route.origin }} <i class="fa-solid fa-arrow-right"></i> {{ route.destination }}
+            </span>
+          </span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

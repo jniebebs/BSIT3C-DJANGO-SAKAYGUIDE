@@ -2,9 +2,10 @@
 
 The project keeps its Django app tables (auth, sessions, info records) on the
 'default' connection, while the 14 SakayGuide transit tables live in
-sakayguide_db. Writes to the SakayGuide database are limited to the tables
-the application needs (search_history, saved_routes, users mirror, and the
-admin_activity_logs audit trail); migrations never touch that database.
+sakayguide_db. The administrator dashboard writes to the same tables commuters
+read from: locations, routes, stops, fares, transfers and the user mirror/audit
+trail. The schema still belongs to the SakayGuide SQL scripts, so these models
+remain ``managed = False`` -- Django never creates or alters their tables.
 """
 SAKAYGUIDE_TABLES = {
     'municipalities', 'barangays', 'locations', 'transportation_types',
@@ -13,11 +14,13 @@ SAKAYGUIDE_TABLES = {
     'admin_activity_logs', 'users',
 }
 
-# Tables the application itself writes to (search history + saved routes +
-# the users mirror used to link Django accounts to SakayGuide user ids +
-# the audit trail populated when accounts are created).
+# Tables the administrator dashboard may write to. Master records are normally
+# deactivated instead of hard-deleted so existing searches, saved routes and
+# audit records keep their foreign keys.
 SAKAYGUIDE_WRITABLE_TABLES = {
     'search_history', 'saved_routes', 'users', 'admin_activity_logs',
+    'locations', 'routes', 'route_stops', 'route_fares', 'route_transfers',
+    'transportation_types', 'fare_types',
 }
 
 

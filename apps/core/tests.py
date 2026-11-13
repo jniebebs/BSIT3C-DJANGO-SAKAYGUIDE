@@ -115,7 +115,7 @@ class HomeViewTests(TestCase):
     @patch('apps.core.views._sakayguide_stats', return_value=SAMPLE_STATS)
     def test_home_renders_for_authenticated_user(self, stats_mock):
         user = get_user_model().objects.create_user(
-            username='admin', password='secret1234',
+            username='admin', password='secret1234', is_staff=True,
         )
 
         self.client.force_login(user)
@@ -133,15 +133,15 @@ class HomeViewTests(TestCase):
         self.assertContains(response, reverse('dashboard_locations'))
         self.assertContains(response, reverse('dashboard_transfers'))
         self.assertContains(response, reverse('dashboard_commuters'))
-        self.assertNotContains(response, 'Search activity')
+        self.assertContains(response, 'Search activity')
         self.assertNotContains(response, 'Popular destinations')
         self.assertNotContains(response, 'Recent searches')
-        stats_mock.assert_called_once_with(log_limit=0, recent_search_limit=0)
+        stats_mock.assert_called_once_with(log_limit=6, recent_search_limit=0)
 
     @patch('apps.core.views._sakayguide_stats', side_effect=OperationalError)
     def test_home_shows_database_error(self, stats_mock):
         user = get_user_model().objects.create_user(
-            username='admin2', password='secret1234',
+            username='admin2', password='secret1234', is_staff=True,
         )
 
         self.client.force_login(user)
@@ -149,7 +149,7 @@ class HomeViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Could not connect to the SakayGuide database')
-        stats_mock.assert_called_once_with(log_limit=0, recent_search_limit=0)
+        stats_mock.assert_called_once_with(log_limit=6, recent_search_limit=0)
 
     def test_home_requires_login(self):
         response = self.client.get(reverse('dashboard'))
@@ -160,7 +160,7 @@ class HomeViewTests(TestCase):
 class DashboardDetailViewTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
-            username='detailadmin', password='secret1234',
+            username='detailadmin', password='secret1234', is_staff=True,
         )
         self.client.force_login(self.user)
 
@@ -249,7 +249,7 @@ class RegisterAuditTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('dashboard'))
+        self.assertEqual(response.url, reverse('commuter_dashboard'))
 
         user = get_user_model().objects.get(username='newcommuter')
         log_mock.assert_called_once()

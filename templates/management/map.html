@@ -1,0 +1,211 @@
+{% extends "management/base.html" %}
+{% load static %}
+{% load management_tags %}
+
+{% block page_title %}Map management{% endblock %}
+{% block page_subtitle %}Verify location pins, find missing coordinates and preview route paths.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_locations' %}?missing=1" class="btn btn-outline-warning">
+  <i class="fa-solid fa-triangle-exclamation me-1"></i>Missing pins ({{ missing_count }})
+</a>
+<a href="{% url 'management_location_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add location
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-map-pin"></i></span>
+      <div><span>Mapped locations</span><strong>{{ mapped_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-map"></i></span>
+      <div><span>Missing pins</span><strong>{{ missing_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-route"></i></span>
+      <div><span>Routes available</span><strong>{{ routes|length }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-location-dot"></i></span>
+      <div><span>Filtered locations</span><strong>{{ locations|length }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<section class="card mgmt-card mb-3">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search location, barangay or address" aria-label="Search map locations">
+      </div>
+      <select name="status" class="form-select" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <select name="missing" class="form-select" aria-label="Filter by coordinates">
+        <option value="">Any coordinates</option>
+        <option value="1" {% if missing == '1' %}selected{% endif %}>Missing coordinates</option>
+        <option value="0" {% if missing == '0' %}selected{% endif %}>With coordinates</option>
+      </select>
+      <select name="route" class="form-select" aria-label="Show a route path">
+        <option value="">Show all locations</option>
+        {% for route in routes %}
+        <option value="{{ route.pk }}" {% if route_id == route.pk|stringformat:"s" %}selected{% endif %}>
+          {{ route.route_code }} &mdash; {{ route.route_name }}
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary">Apply</button>
+      {% if query or status or missing or route_id %}
+      <a href="{% url 'management_map' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</section>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">
+            {% if selected_route %}Route {{ selected_route.route_code }} path{% else %}Location map{% endif %}
+          </h3>
+          <p class="mgmt-card-sub">
+            {% if selected_route %}
+            {{ selected_route.origin.location_name }} &rarr; {{ selected_route.destination.location_name }}
+            {% else %}
+            Green pins have verified coordinates; amber pins are missing a position.
+            {% endif %}
+          </p>
+        </div>
+        {% if google_maps.enabled %}
+        <span class="badge bg-green-lt"><i class="fa-solid fa-satellite-dish me-1"></i>Google Maps</span>
+        {% else %}
+        <span class="badge bg-secondary-lt">Key not configured</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if google_maps.enabled %}
+        <div id="management-map" class="mgmt-map mgmt-map-large" aria-label="SakayGuide management map"></div>
+        <div class="mgmt-map-legend">
+          <span><i class="fa-solid fa-circle text-green"></i>Mapped location</span>
+          <span><i class="fa-solid fa-circle text-amber"></i>Missing coordinates</span>
+          {% if selected_route %}<span><i class="fa-solid fa-minus text-blue"></i>Route path</span>{% endif %}
+        </div>
+        {{ google_maps|json_script:"google-maps-config" }}
+        {{ markers|json_script:"management-markers" }}
+        {% if selected_route %}{{ route_map_data|json_script:"route-map-data" }}{% endif %}
+        {% else %}
+        <div class="mgmt-map-placeholder mgmt-map-placeholder-lg">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <h4>Google Maps is not configured</h4>
+          <p>Add a restricted <code>GOOGLE_MAPS_API_KEY</code> to your local
+            <code>.env</code> file to render the interactive map. All location
+            and route data below remains fully manageable without it.</p>
+          <a href="{% url 'management_locations' %}?missing=1" class="btn btn-outline-primary btn-sm">
+            Review missing pins
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-4">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Coordinate gaps</h3>
+          <p class="mgmt-card-sub">{{ missing_locations|length }} filtered location{{ missing_locations|length|pluralize }} need a pin.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if missing_locations %}
+        <ul class="mgmt-plain-list mgmt-plain-list-scroll">
+          {% for location in missing_locations %}
+          <li>
+            <span>
+              <strong>{{ location.location_name }}</strong>
+              <small>{{ location.barangay.barangay_name }} &middot; {{ location.location_type|title }}</small>
+            </span>
+            <a href="{% url 'management_location_edit' location.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="fa-solid fa-crosshairs me-1"></i>Pin
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="mgmt-empty py-4">
+          <i class="fa-solid fa-circle-check"></i>
+          <h3>No coordinate gaps</h3>
+          <p>Every location in this filter has a verified map position.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="card mgmt-card mt-3">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title mb-0">Filtered locations</h3>
+      <p class="mgmt-card-sub">Edit a location to set or correct its coordinates.</p>
+    </div>
+    <a href="{% url 'management_locations' %}" class="btn btn-sm btn-outline-secondary">All locations</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr><th>Location</th><th>Barangay</th><th>Type</th><th>Coordinates</th><th>Status</th><th class="text-end">Action</th></tr>
+      </thead>
+      <tbody>
+        {% for location in locations %}
+        <tr>
+          <td class="fw-semibold">{{ location.location_name }}</td>
+          <td>{{ location.barangay.barangay_name }}</td>
+          <td><span class="badge bg-secondary-lt">{{ location.location_type|title }}</span></td>
+          <td>
+            {% if location.latitude and location.longitude %}
+            <span class="text-muted small">{{ location.latitude|floatformat:5 }}, {{ location.longitude|floatformat:5 }}</span>
+            {% else %}
+            <span class="badge bg-orange-lt">Missing</span>
+            {% endif %}
+          </td>
+          <td><span class="badge {{ location.status|status_class }}">{{ location.status|title }}</span></td>
+          <td class="text-end">
+            <a href="{% url 'management_location_edit' location.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="fa-solid fa-pen me-1"></i>Edit
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No locations match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block admin_js %}
+{% if google_maps.enabled %}
+<script src="{% static 'js/admin-maps-loader.js' %}?v=1"></script>
+<script src="{% static 'js/admin-map.js' %}?v=1"></script>
+{% endif %}
+{% endblock %}

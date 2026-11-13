@@ -1,0 +1,182 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Activity &amp; monitoring{% endblock %}
+{% block page_subtitle %}Administrator audit trail, commuter route searches and recently added records.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_dashboard' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-gauge-high me-1"></i>Overview
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-clock-rotate-left"></i></span>
+      <div><span>Audit entries</span><strong>{{ total_logs }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <div><span>Route searches</span><strong>{{ total_searches }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-list-check"></i></span>
+      <div><span>Filtered audit rows</span><strong>{{ logs.paginator.count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-filter"></i></span>
+      <div><span>Filtered searches</span><strong>{{ searches.paginator.count }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<section class="card mgmt-card mb-3">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search description, administrator or location" aria-label="Search activity">
+      </div>
+      <select name="action" class="form-select" aria-label="Filter by action">
+        <option value="">All actions</option>
+        {% for action in action_choices %}
+        <option value="{{ action }}" {% if action_type == action %}selected{% endif %}>{{ action|title }}</option>
+        {% endfor %}
+      </select>
+      <select name="table" class="form-select" aria-label="Filter by table">
+        <option value="">All tables</option>
+        {% for table_name in table_choices %}
+        <option value="{{ table_name }}" {% if table == table_name %}selected{% endif %}>{{ table_name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or action_type or table %}
+      <a href="{% url 'management_activity' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</section>
+
+<section class="card mgmt-card mb-3">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title mb-0">Administrator audit log</h3>
+      <p class="mgmt-card-sub">Every create, update, activation and delete action.</p>
+    </div>
+    <span class="badge bg-secondary-lt">{{ logs.paginator.count }} entr{{ logs.paginator.count|pluralize:"y,ies" }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr><th>Action</th><th>Administrator</th><th>Table</th><th>Record</th><th>Description</th><th class="text-end">When</th></tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td><span class="badge {{ log.action_type|action_class }}">{{ log.action_type }}</span></td>
+          <td>
+            <div class="fw-semibold">{{ log.admin.full_name }}</div>
+            <div class="text-muted small">{{ log.admin.email }}</div>
+          </td>
+          <td><code class="mgmt-code">{{ log.table_affected }}</code></td>
+          <td class="text-muted">{% if log.record_id %}{{ log.record_id }}{% else %}&mdash;{% endif %}</td>
+          <td class="small mgmt-clip-wide" title="{{ log.action_description }}">{{ log.action_description|default:"-" }}</td>
+          <td class="text-end text-muted text-nowrap">{{ log.created_at|date:"M j, Y H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No audit entries match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if logs.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=logs %}
+  </div>
+  {% endif %}
+</section>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Route search history</h3>
+          <p class="mgmt-card-sub">Origin and destination pairs requested by commuters.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Commuter</th><th>Journey</th><th class="text-end">Searched</th></tr></thead>
+          <tbody>
+            {% for search in searches %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ search.user.full_name|default:"Guest" }}</div>
+                {% if search.user %}<div class="text-muted small">{{ search.user.email }}</div>{% endif %}
+              </td>
+              <td>
+                <div><i class="fa-solid fa-circle-dot text-green me-1"></i>{{ search.origin.location_name }}</div>
+                <div class="text-muted"><i class="fa-solid fa-location-dot text-red me-1"></i>{{ search.destination.location_name }}</div>
+              </td>
+              <td class="text-end text-muted text-nowrap">{{ search.search_date|date:"M j, H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No route searches match these filters.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if searches.paginator.count %}
+      <div class="card-footer">
+        {% include 'management/_pagination.html' with page_obj=searches page_param='search_page' %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Recently added locations</h3>
+          <p class="mgmt-card-sub">Newest records by location ID.</p>
+        </div>
+        <a href="{% url 'management_locations' %}" class="btn btn-sm btn-outline-secondary">Manage</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Location</th><th>Barangay</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+          <tbody>
+            {% for location in recent_locations %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ location.location_name }}</div>
+                <div class="text-muted small">{{ location.location_type|title }}</div>
+              </td>
+              <td>{{ location.barangay.barangay_name }}</td>
+              <td><span class="badge {{ location.status|status_class }}">{{ location.status|title }}</span></td>
+              <td class="text-end">
+                <a href="{% url 'management_location_edit' location.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No locations recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

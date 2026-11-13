@@ -31,11 +31,13 @@
   <body>
     <div class="page">
 
+        {% block sidebar %}
         {% if request.user.is_authenticated %}
             {% include 'theme/sidebar.html' %}
         {% else %}
             {% include 'theme/public_sidebar.html' %}
         {% endif %}
+        {% endblock %}
 
         <div class="page-wrapper">
             <div class="page-body">

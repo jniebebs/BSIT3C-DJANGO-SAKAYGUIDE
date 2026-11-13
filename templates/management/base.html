@@ -1,0 +1,89 @@
+{% extends "theme/base.html" %}
+{% load static %}
+{% load management_tags %}
+
+{% block extra_css %}
+<link href="{% static 'css/admin.css' %}?v=1" rel="stylesheet"/>
+{% block admin_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="mgmt-shell">
+
+  <header class="mgmt-header">
+    <div class="mgmt-header-text">
+      <div class="mgmt-pretitle">
+        <i class="fa-solid fa-shield-halved"></i>
+        Administration
+      </div>
+      <h1 class="mgmt-title">{% block page_title %}Administration{% endblock %}</h1>
+      <p class="mgmt-subtitle">{% block page_subtitle %}{% endblock %}</p>
+    </div>
+    <div class="mgmt-actions">
+      {% block page_actions %}{% endblock %}
+    </div>
+  </header>
+
+  {% with url_name=request.resolver_match.url_name %}
+  <nav class="mgmt-tabs" aria-label="Administration sections">
+    <a class="mgmt-tab {% if url_name == 'management_dashboard' %}active{% endif %}"
+       href="{% url 'management_dashboard' %}">
+      <i class="fa-solid fa-gauge-high"></i><span>Overview</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_location' in url_name %}active{% endif %}"
+       href="{% url 'management_locations' %}">
+      <i class="fa-solid fa-location-dot"></i><span>Locations</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_route' in url_name %}active{% endif %}"
+       href="{% url 'management_routes' %}">
+      <i class="fa-solid fa-route"></i><span>Routes</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_stop' in url_name %}active{% endif %}"
+       href="{% url 'management_stops' %}">
+      <i class="fa-solid fa-signs-post"></i><span>Stops</span>
+    </a>
+    <a class="mgmt-tab {% if url_name == 'management_fares' or url_name == 'management_fare_create' or url_name == 'management_fare_edit' or url_name == 'management_fare_delete' %}active{% endif %}"
+       href="{% url 'management_fares' %}">
+      <i class="fa-solid fa-ticket"></i><span>Fares</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_transfer' in url_name %}active{% endif %}"
+       href="{% url 'management_transfers' %}">
+      <i class="fa-solid fa-diagram-project"></i><span>Transfers</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_transport_type' in url_name or 'management_fare_type' in url_name %}active{% endif %}"
+       href="{% url 'management_transport_types' %}">
+      <i class="fa-solid fa-bus"></i><span>Transport</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_map' in url_name %}active{% endif %}"
+       href="{% url 'management_map' %}">
+      <i class="fa-solid fa-map-location-dot"></i><span>Map</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_user' in url_name %}active{% endif %}"
+       href="{% url 'management_users' %}">
+      <i class="fa-solid fa-users-gear"></i><span>Users</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_searches' in url_name %}active{% endif %}"
+       href="{% url 'management_searches' %}">
+      <i class="fa-solid fa-magnifying-glass"></i><span>Searches</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_activity' in url_name %}active{% endif %}"
+       href="{% url 'management_activity' %}">
+      <i class="fa-solid fa-clock-rotate-left"></i><span>Activity</span>
+    </a>
+    <a class="mgmt-tab {% if 'management_reports' in url_name %}active{% endif %}"
+       href="{% url 'management_reports' %}">
+      <i class="fa-solid fa-chart-column"></i><span>Reports</span>
+    </a>
+  </nav>
+  {% endwith %}
+
+  {% include 'management/_messages.html' %}
+
+  {% block admin_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/admin.js' %}?v=1"></script>
+{% block admin_js %}{% endblock %}
+{% endblock %}

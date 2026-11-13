@@ -1,0 +1,127 @@
+{% extends "management/base.html" %}
+
+{% block page_title %}{% if mode == 'create' %}Add route{% else %}Edit route{% endif %}{% endblock %}
+{% block page_subtitle %}
+{% if mode == 'create' %}
+Create the route first, then add its stops, fares and transfer connections.
+{% else %}
+Update route {{ route.route_code }} and its service details.
+{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% if route %}{% url 'management_route_detail' route.pk %}{% else %}{% url 'management_routes' %}{% endif %}"
+   class="btn btn-outline-secondary">
+  <i class="fa-solid fa-arrow-left me-1"></i>{% if route %}Back to route{% else %}Back to routes{% endif %}
+</a>
+{% endblock %}
+
+{% block admin_content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger" role="alert">
+    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <section class="card mgmt-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Route details</h3>
+            <p class="mgmt-card-sub">Codes are unique and appear in commuter journey results.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label" for="{{ form.route_code.id_for_label }}">Route code <span class="text-danger">*</span></label>
+              {{ form.route_code }}
+              {% for error in form.route_code.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-7">
+              <label class="form-label" for="{{ form.route_name.id_for_label }}">Route name <span class="text-danger">*</span></label>
+              {{ form.route_name }}
+              {% for error in form.route_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.transport_type.id_for_label }}">Transport mode <span class="text-danger">*</span></label>
+              {{ form.transport_type }}
+              <div class="form-hint">
+                Jeepney, bus, van or tricycle.
+                <a href="{% url 'management_transport_types' %}">Manage modes</a>
+              </div>
+              {% for error in form.transport_type.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.estimated_travel_time.id_for_label }}">Travel time (minutes) <span class="text-danger">*</span></label>
+              {{ form.estimated_travel_time }}
+              {% for error in form.estimated_travel_time.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.origin.id_for_label }}">Origin / boarding point <span class="text-danger">*</span></label>
+              {{ form.origin }}
+              {% for error in form.origin.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.destination.id_for_label }}">Destination / drop-off point <span class="text-danger">*</span></label>
+              {{ form.destination }}
+              {% for error in form.destination.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.route_description.id_for_label }}">Route description</label>
+              {{ form.route_description }}
+              {% for error in form.route_description.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label" for="{{ form.status.id_for_label }}">Status</label>
+              {{ form.status }}
+              {% for error in form.status.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-4">
+      <section class="card mgmt-card mb-3">
+        <div class="card-header"><h3 class="card-title mb-0">Before you save</h3></div>
+        <div class="card-body">
+          <ul class="mgmt-checklist">
+            <li><i class="fa-solid fa-location-dot"></i><span>Both the origin and destination must already exist as locations.</span></li>
+            <li><i class="fa-solid fa-signs-post"></i><span>After saving, add the ordered boarding and drop-off stops.</span></li>
+            <li><i class="fa-solid fa-ticket"></i><span>Add at least one active fare so commuters see an estimated cost.</span></li>
+            <li><i class="fa-solid fa-diagram-project"></i><span>Transfer points must be stops on both connected routes.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card mgmt-card">
+        <div class="card-header"><h3 class="card-title mb-0">Shortcuts</h3></div>
+        <div class="card-body d-grid gap-2">
+          <a href="{% url 'management_location_create' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-plus me-1"></i>Add a missing location
+          </a>
+          <a href="{% url 'management_transport_types' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-bus me-1"></i>Manage transport modes
+          </a>
+          <a href="{% url 'management_fare_types' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-tags me-1"></i>Manage fare categories
+          </a>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="mgmt-form-actions">
+    <a href="{% url 'management_routes' %}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk me-1"></i>
+      {% if mode == 'create' %}Create route{% else %}Save changes{% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}

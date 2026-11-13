@@ -1,159 +1,80 @@
+{% extends "auth/base.html" %}
 {% load static %}
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-  <title>
-    Sakay Guide
-  </title>
-  <link href="{% static 'libs/jsvectormap/dist/jsvectormap.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler-flags.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler-socials.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler-payments.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler-vendors.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler-marketing.css' %}" rel="stylesheet" />
-  <link href="{% static 'css/tabler-themes.css' %}" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
 
-<body>
-  <script src="{% static 'js/tabler-theme.js' %}"></script>
-  <div class="page page-center">
-    <div class="container container-tight py-4">
+{% block page_title %}Sign in &middot; SakayGuide{% endblock %}
+{% block body_class %}is-portal{% endblock %}
+{% block wrap_class %}is-wide{% endblock %}
+{% block brand_sub %}Transit Management System{% endblock %}
 
-     <div class="card card-md">
-      <div class="card-body">
+{% block content %}
+<div class="card sg-card">
+  <div class="card-body">
+    <div class="sg-eyebrow">
+      <i class="fa-solid fa-shield-halved"></i> Secure sign in
+    </div>
+    <h1>Choose your account type</h1>
+    <p class="sg-subtitle">
+      SakayGuide keeps administrator and commuter accounts completely
+      separate. Pick the portal that matches your account.
+    </p>
 
-        <center class="mt-n4">
-        <i class='far fa-calendar' style='font-size:40px'></i>
-        </center>
-        <h2 class="h3 text-center mb-4">Sign in to start your session</h2>
+    {% if messages %}
+    <div class="mb-3" aria-live="polite">
+      {% for message in messages %}
+      <div class="alert sg-alert mb-2
+        {% if message.tags == 'success' %}alert-success
+        {% elif message.tags == 'warning' %}alert-warning
+        {% elif message.tags == 'error' %}alert-danger
+        {% else %}alert-info{% endif %}" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-        <form method="post">
-          {% csrf_token %}
+    <div class="sg-portals">
+      <a href="{% url 'admin_login' %}" class="sg-portal is-admin">
+        <span class="sg-portal-icon"><i class="fa-solid fa-user-shield"></i></span>
+        <span class="sg-portal-title">Administrator</span>
+        <span class="sg-portal-text">
+          Manage locations, jeepney and tricycle routes, stops, fares,
+          transfer links, commuter accounts and the map registry.
+        </span>
+        <span class="sg-portal-cta">
+          Administrator sign in <i class="fa-solid fa-arrow-right"></i>
+        </span>
+      </a>
 
-          {% if messages %}
-          {% for message in messages %}
-          <div id="error-message" class="alert alert-danger">
-            {{ message }}
-          </div>
-          {% endfor %}
-          {% endif %}
-          <div class="mb-3">
-            <label class="form-label">Username</label>
-            <input type="text" class="form-control" name="username" autocomplete="off" {% if locked %}disabled{% endif %}>
-          </div>
-          <div class="mb-2">
-            <label class="form-label">
-              Password
-            </label>
-            <div class="input-group input-group-flat">
-              <input type="password" class="form-control" name="password" autocomplete="off" {% if locked %}disabled{% endif %}>
-            </div>
-          </div>
-          <div class="form-footer d-flex justify-content-end">
-            <button type="submit" class="btn btn-primary w-50">
-              <i class="fas fa-sign-in-alt me-1"></i> Sign in
-            </button>
-          </div>
-       </form>
-     </div>
-   </div>
- </div>
- <!-- <div class="text-center text-secondary mt-n1">
-  Don't have an account?
-  <a href="{% url 'register' %}" class="text-primary fw-bold">Register</a>
- </div> -->
+      <a href="{% url 'commuter_login' %}" class="sg-portal is-commuter">
+        <span class="sg-portal-icon"><i class="fa-solid fa-route"></i></span>
+        <span class="sg-portal-title">Commuter</span>
+        <span class="sg-portal-text">
+          Find your route, use live GPS and Google Maps, check estimated
+          fares and travel times, and save favourite journeys.
+        </span>
+        <span class="sg-portal-cta">
+          Commuter sign in <i class="fa-solid fa-arrow-right"></i>
+        </span>
+      </a>
+    </div>
+
+    <div class="sg-divider">or</div>
+
+    <a href="{% url 'commuter_register' %}" class="btn btn-primary w-100 sg-submit">
+      <i class="fa-solid fa-user-plus me-1"></i> Create a commuter account
+    </a>
+
+    <div class="sg-meta">
+      <span><i class="fa-solid fa-lock me-1"></i>CSRF protected sessions</span>
+      <span>Django password hashing</span>
+    </div>
+  </div>
 </div>
 
-{% include 'theme/settings.html' %}
-
-<script src="{% static 'js/tabler.js' %}" defer></script>
-<script src="{% static 'js/demo.js' %}" defer></script>
-{% if locked %}
-<script>
-  let remaining = {{ remaining }};
-  const messageBox = document.getElementById("error-message");
-
-  let interval = setInterval(function() {
-    remaining--;
-
-    if (remaining > 0) {
-      messageBox.innerHTML =
-      "Too many failed attempts. Try again in " + remaining + " seconds.";
-    } else {
-      clearInterval(interval);
-      window.location.href = "{% url 'login' %}";
-    }
-
-  }, 1000);
-</script>
-{% endif %}
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    var themeConfig = {
-      theme: "light",
-      "theme-base": "gray",
-      "theme-font": "sans-serif",
-      "theme-primary": "blue",
-      "theme-radius": "1",
-    };
-
-    var url = new URL(window.location);
-    var form = document.getElementById("offcanvasSettings");
-    var resetButton = document.getElementById("reset-changes");
-
-    var checkItems = function () {
-      for (var key in themeConfig) {
-        var value =
-        window.localStorage["tabler-" + key] || themeConfig[key];
-
-        if (!!value) {
-          var radios = form.querySelectorAll(`[name="${key}"]`);
-
-          if (!!radios) {
-            radios.forEach((radio) => {
-              radio.checked = radio.value === value;
-            });
-          }
-        }
-      }
-    };
-
-    form.addEventListener("change", function (event) {
-      var target = event.target,
-      name = target.name,
-      value = target.value;
-
-      for (var key in themeConfig) {
-        if (name === key) {
-          document.documentElement.setAttribute("data-bs-" + key, value);
-          window.localStorage.setItem("tabler-" + key, value);
-          url.searchParams.set(key, value);
-        }
-      }
-
-      window.history.pushState({}, "", url);
-    });
-
-    resetButton.addEventListener("click", function () {
-      for (var key in themeConfig) {
-        var value = themeConfig[key];
-        document.documentElement.removeAttribute("data-bs-" + key);
-        window.localStorage.removeItem("tabler-" + key);
-        url.searchParams.delete(key);
-      }
-
-      checkItems();
-
-      window.history.pushState({}, "", url);
-    });
-
-    checkItems();
-  });
-</script>
-</body>
-</html>
+<p class="sg-foot">
+  SakayGuide &middot; Kabankalan City transit information
+  <br>
+  Administrator accounts are created with
+  <code>python manage.py createsuperuser</code>.
+</p>
+{% endblock %}

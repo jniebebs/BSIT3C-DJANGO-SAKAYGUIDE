@@ -1,0 +1,47 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>{% block page_title %}Sign in &middot; SakayGuide{% endblock %}</title>
+  <link href="{% static 'libs/jsvectormap/dist/jsvectormap.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-flags.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-socials.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-payments.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-vendors.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-marketing.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/tabler-themes.css' %}" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="{% static 'css/auth.css' %}?v=1" rel="stylesheet" />
+  <style>
+    @import url("https://rsms.me/inter/inter.css");
+  </style>
+</head>
+
+<body class="sg-auth {% block body_class %}{% endblock %}">
+  <script src="{% static 'js/tabler-theme.js' %}"></script>
+
+  <div class="sg-shell">
+    <div class="sg-wrap {% block wrap_class %}{% endblock %}">
+      {% block brand %}
+      <a href="{% url 'login' %}" class="sg-brand" aria-label="SakayGuide sign in">
+        <span class="sg-brand-mark"><i class="fa-solid fa-route"></i></span>
+        <span>
+          <span class="sg-brand-name">Sakay<span>Guide</span></span>
+          <span class="sg-brand-sub">{% block brand_sub %}Management System{% endblock %}</span>
+        </span>
+      </a>
+      {% endblock %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+  {% include 'theme/settings.html' %}
+
+  <script src="{% static 'js/tabler.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,162 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Route search monitoring{% endblock %}
+{% block page_subtitle %}Every route search the commuters make, so you can see which routes, stops and fares need attention.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_reports' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-chart-column me-1"></i>Reports
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <div><span>All searches</span><strong>{{ total_searches }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-user"></i></span>
+      <div><span>Commuter searches</span><strong>{{ commuter_searches }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-user-clock"></i></span>
+      <div><span>Guest searches</span><strong>{{ guest_searches }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-calendar-week"></i></span>
+      <div><span>Last 7 days</span><strong>{{ week_searches }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Most requested journeys</h3>
+          <p class="mgmt-card-sub">Origin and destination pairs with the highest search count.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Origin</th><th>Destination</th><th class="text-end">Searches</th></tr></thead>
+          <tbody>
+            {% for pair in top_pairs %}
+            <tr>
+              <td class="fw-semibold">{{ pair.origin__location_name }}</td>
+              <td>
+                <span class="text-muted">{{ pair.origin__location_name }}</span>
+                <i class="fa-solid fa-arrow-right mx-1 text-muted"></i>
+                <span class="fw-semibold">{{ pair.destination__location_name }}</span>
+              </td>
+              <td class="text-end"><span class="badge bg-purple-lt">{{ pair.count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No route searches recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">How to use this page</h3>
+          <p class="mgmt-card-sub">Monitoring helps you improve the network.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          A pair that is searched often but has no route yet is a gap in the
+          network. Add the missing route, stops and fares from the
+          transportation management screens so commuters get a result.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="{% url 'management_routes' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-route me-1"></i> Manage routes
+          </a>
+          <a href="{% url 'management_stops' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-signs-post me-1"></i> Manage stops
+          </a>
+          <a href="{% url 'management_fares' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-ticket me-1"></i> Manage fares
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search commuter or location" aria-label="Search route searches">
+      </div>
+      <select name="window" class="form-select" aria-label="Filter by period">
+        <option value="">All time</option>
+        <option value="7" {% if window == '7' %}selected{% endif %}>Last 7 days</option>
+        <option value="30" {% if window == '30' %}selected{% endif %}>Last 30 days</option>
+      </select>
+      <select name="audience" class="form-select" aria-label="Filter by audience">
+        <option value="">Everyone</option>
+        <option value="commuter" {% if audience == 'commuter' %}selected{% endif %}>Commuters</option>
+        <option value="guest" {% if audience == 'guest' %}selected{% endif %}>Guests</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or window or audience %}
+      <a href="{% url 'management_searches' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr><th>Commuter</th><th>Journey</th><th class="text-end">Searched</th></tr>
+      </thead>
+      <tbody>
+        {% for search in searches %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ search.user.full_name|default:"Guest" }}</div>
+            {% if search.user %}
+            <div class="text-muted small">{{ search.user.email }}</div>
+            {% else %}
+            <div class="text-muted small">Not signed in</div>
+            {% endif %}
+          </td>
+          <td>
+            <div><i class="fa-solid fa-circle-dot text-green me-1"></i>{{ search.origin.location_name }}</div>
+            <div class="text-muted"><i class="fa-solid fa-location-dot text-red me-1"></i>{{ search.destination.location_name }}</div>
+          </td>
+          <td class="text-end text-muted text-nowrap">{{ search.search_date|date:"M j, Y H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center text-muted py-4">No route searches match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if searches.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=searches %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

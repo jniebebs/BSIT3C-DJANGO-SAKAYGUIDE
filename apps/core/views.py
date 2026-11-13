@@ -10,11 +10,19 @@ from django.db import connections
 from django.db.utils import DatabaseError, OperationalError
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_http_methods, require_POST
 
 from routes.services import fastest_travel_minutes
 
-from .audit import log_account_creation
+from .audit import log_account_creation, log_activity
+from .commuter_forms import CommuterRegistrationForm
+from .permissions import (
+    access_denied,
+    administrator_required,
+    home_url_for,
+    is_administrator,
+)
 
 User = get_user_model()
 
@@ -22,6 +30,33 @@ MAX_FAILED_ATTEMPTS = 5
 LOCK_DURATION = timedelta(minutes=1)
 INVALID_LOGIN_MESSAGE = 'Invalid username or password.'
 LOCKED_MESSAGE = 'Too many failed attempts. Locked for 1 minute.'
+
+
+def _post_login_url(user):
+    """Send administrators to the management console, commuters home."""
+    return 'management_dashboard' if user.is_staff else 'commuter_dashboard'
+
+
+def _authenticate_identifier(request, identifier, password):
+    """Authenticate with a username or an e-mail address.
+
+    Django's default backend only knows usernames. To avoid revealing which
+    accounts exist, a failed e-mail lookup simply falls through to the normal
+    username attempt and the generic error message.
+    """
+    user = authenticate(request, username=identifier, password=password)
+    if user is not None or '@' not in identifier:
+        return user
+
+    matches = (
+        User.objects.filter(email__iexact=identifier)
+        .values_list('username', flat=True)[:5]
+    )
+    for username in matches:
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            return user
+    return None
 
 
 def _reset_lock_state(request):
@@ -108,7 +143,7 @@ def _validate_registration_data(data):
 @require_http_methods(['GET', 'POST'])
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect(_post_login_url(request.user))
 
     failed_attempts, remaining = _get_lock_state(request)
     if remaining is not None:
@@ -118,14 +153,24 @@ def login_view(request):
     if request.method == 'GET':
         return render(request, 'auth/login.html')
 
-    username = request.POST.get('username', '').strip()
+    identifier = request.POST.get('username', '').strip()
     password = request.POST.get('password', '')
-    user = authenticate(request, username=username, password=password)
+    user = _authenticate_identifier(request, identifier, password)
 
     if user is not None:
         _reset_lock_state(request)
         login(request, user)
-        return redirect('dashboard')
+        log_activity(
+            user,
+            'LOGIN',
+            'auth_user',
+            record_id=user.pk,
+            description=(
+                f'{user.username} signed in to the '
+                f'{"management console" if user.is_staff else "commuter dashboard"}.'
+            ),
+        )
+        return redirect(_post_login_url(user))
 
     failed_attempts += 1
     request.session['failed_attempts'] = failed_attempts
@@ -139,9 +184,180 @@ def login_view(request):
     return render(request, 'auth/login.html')
 
 
+@require_POST
 def logout_view(request):
+    user = request.user if request.user.is_authenticated else None
+    if user is not None:
+        log_activity(
+            user,
+            'LOGOUT',
+            'auth_user',
+            record_id=user.pk,
+            description=f'{user.username} signed out.',
+        )
     logout(request)
+    messages.info(request, 'You have been signed out securely.')
     return redirect('login')
+
+
+# ---------------------------------------------------------------------------
+# Role specific sign-in portals
+# ---------------------------------------------------------------------------
+
+def _portal_context(request, role, banner=None):
+    """Shared context for the administrator and commuter sign-in pages."""
+    return {
+        'locked': False,
+        'remaining': None,
+        'identifier': request.POST.get('username', '').strip(),
+        'role': role,
+        'banner': banner,
+    }
+
+
+def _sign_in(request, role, template, banner=None):
+    """Sign-in flow shared by the administrator and commuter portals.
+
+    ``role`` is either ``'administrator'`` or ``'commuter'``. An account can
+    only sign in on the portal that matches its own role, which keeps the two
+    account experiences completely separate. A wrong-portal attempt is not
+    counted as a failed password attempt, so one account can never lock
+    another one out.
+    """
+    if request.user.is_authenticated:
+        return redirect(_post_login_url(request.user))
+
+    failed_attempts, remaining = _get_lock_state(request)
+    if remaining is not None:
+        messages.error(
+            request,
+            f'Too many failed attempts. Try again in {remaining} seconds.',
+        )
+        context = _portal_context(request, role, banner)
+        context.update({'locked': True, 'remaining': remaining})
+        return render(request, template, context)
+
+    if request.method == 'GET':
+        return render(
+            request, template, _portal_context(request, role, banner)
+        )
+
+    identifier = request.POST.get('username', '').strip()
+    password = request.POST.get('password', '')
+    user = _authenticate_identifier(request, identifier, password)
+
+    if user is not None and not user.is_active:
+        # A deactivated account must never get a session.
+        user = None
+
+    if user is not None:
+        if role == 'administrator' and not is_administrator(user):
+            messages.error(
+                request,
+                'That is not an administrator account. Use the commuter '
+                'sign-in page instead.',
+            )
+            return render(
+                request, template, _portal_context(request, role, banner)
+            )
+        if role == 'commuter' and is_administrator(user):
+            messages.error(
+                request,
+                'Administrator accounts sign in on the administrator page.',
+            )
+            return render(
+                request, template, _portal_context(request, role, banner)
+            )
+
+        _reset_lock_state(request)
+        login(request, user)
+        log_activity(
+            user,
+            'LOGIN',
+            'auth_user',
+            record_id=user.pk,
+            description=(
+                f'{user.username} signed in to the '
+                f'{"management console" if user.is_staff else "commuter dashboard"}.'
+            ),
+        )
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(
+            url=next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return redirect(next_url)
+        return redirect(_post_login_url(user))
+
+    failed_attempts += 1
+    request.session['failed_attempts'] = failed_attempts
+    if failed_attempts >= MAX_FAILED_ATTEMPTS:
+        remaining = _set_lock_state(request)
+        messages.error(request, LOCKED_MESSAGE)
+        context = _portal_context(request, role, banner)
+        context.update({'locked': True, 'remaining': remaining})
+        return render(request, template, context)
+
+    remaining_attempts = MAX_FAILED_ATTEMPTS - failed_attempts
+    messages.error(
+        request,
+        f'{INVALID_LOGIN_MESSAGE} {remaining_attempts} attempts remaining.',
+    )
+    return render(request, template, _portal_context(request, role, banner))
+
+
+@require_http_methods(['GET', 'POST'])
+def admin_login_view(request):
+    """Administrator sign-in page.
+
+    Only staff accounts can get a session here. Commuters are told to use the
+    commuter portal instead of being shown a raw error page, and an already
+    signed-in commuter is refused the page entirely: the administrator
+    sign-in interface is not part of the commuter experience.
+    """
+    if request.user.is_authenticated:
+        if is_administrator(request.user):
+            return redirect('management_dashboard')
+        return access_denied(
+            request,
+            'The administrator sign-in page is not available to commuter accounts.',
+            'Commuters use the commuter sign-in page to reach Find My Route, '
+            'Google Maps and their own profile.',
+        )
+
+    return _sign_in(
+        request,
+        'administrator',
+        'auth/admin_login.html',
+        banner=(
+            'Administrator accounts manage locations, routes, stops, fares, '
+            'commuter accounts and the Google Maps registry.'
+        ),
+    )
+
+
+@require_http_methods(['GET', 'POST'])
+def commuter_login_view(request):
+    """Commuter sign-in page.
+
+    Only non-staff commuter accounts can get a session here. An already
+    signed-in administrator is sent to the administrator sign-in page.
+    """
+    if request.user.is_authenticated:
+        if is_administrator(request.user):
+            return redirect('admin_login')
+        return redirect('commuter_dashboard')
+
+    return _sign_in(
+        request,
+        'commuter',
+        'auth/commuter_login.html',
+        banner=(
+            'Commuter accounts find jeepney and tricycle routes, check '
+            'estimated fares and travel times, and use live GPS directions.'
+        ),
+    )
 
 
 def _sakayguide_stats(log_limit=6, recent_search_limit=5):
@@ -628,7 +844,7 @@ def _dashboard_page(request, template_name, **stats_options):
     )
 
 
-@login_required(login_url='login')
+@administrator_required
 def home(request):
     return _dashboard_page(
         request,
@@ -638,7 +854,7 @@ def home(request):
     )
 
 
-@login_required(login_url='login')
+@administrator_required
 def activity(request):
     return _dashboard_page(
         request,
@@ -648,7 +864,7 @@ def activity(request):
     )
 
 
-@login_required(login_url='login')
+@administrator_required
 def active_routes(request):
     return _dashboard_page(
         request,
@@ -658,7 +874,7 @@ def active_routes(request):
     )
 
 
-@login_required(login_url='login')
+@administrator_required
 def active_locations(request):
     return _dashboard_page(
         request,
@@ -668,7 +884,7 @@ def active_locations(request):
     )
 
 
-@login_required(login_url='login')
+@administrator_required
 def transfer_links(request):
     return _dashboard_page(
         request,
@@ -678,7 +894,7 @@ def transfer_links(request):
     )
 
 
-@login_required(login_url='login')
+@administrator_required
 def commuters(request):
     return _dashboard_page(
         request,
@@ -690,40 +906,33 @@ def commuters(request):
 
 @require_http_methods(['GET', 'POST'])
 def register_view(request):
+    """Commuter self-registration.
+
+    The commuter role is always assigned: the form has no role field, so a
+    crafted POST can never ask for administrator privileges. The legacy
+    ``/register/`` URL keeps working and renders the same page as
+    ``/commuter/register/``.
+    """
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect(_post_login_url(request.user))
 
-    if request.method == 'GET':
-        return render(request, 'auth/register.html')
+    form = CommuterRegistrationForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
+        log_account_creation(
+            actor=user,
+            account=user,
+            account_role='commuter',
+            description=(
+                f'Self-registered commuter account "{user.username}" '
+                f'({user.email}) was created.'
+            ),
+        )
+        login(request, user)
+        messages.success(
+            request,
+            'Welcome to SakayGuide! Your commuter account is ready.',
+        )
+        return redirect('commuter_dashboard')
 
-    form_data = {
-        'username': request.POST.get('username', ''),
-        'first_name': request.POST.get('first_name', ''),
-        'last_name': request.POST.get('last_name', ''),
-        'email': request.POST.get('email', ''),
-        'password': request.POST.get('password', ''),
-        'confirm_password': request.POST.get('confirm_password', ''),
-    }
-
-    errors = _validate_registration_data(form_data)
-    if errors:
-        return render(request, 'auth/register.html', {'errors': errors, 'form_data': form_data})
-
-    user = User.objects.create_user(
-        username=form_data['username'].strip(),
-        first_name=form_data['first_name'].strip(),
-        last_name=form_data['last_name'].strip(),
-        email=form_data['email'].strip(),
-        password=form_data['password'],
-    )
-    log_account_creation(
-        actor=user,
-        account=user,
-        account_role='commuter',
-        description=(
-            f'Self-registered commuter account "{user.username}" '
-            f'({user.email}) was created.'
-        ),
-    )
-    login(request, user)
-    return redirect('dashboard')
+    return render(request, 'auth/commuter_register.html', {'form': form})

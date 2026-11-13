@@ -134,6 +134,12 @@ DATABASES = {
         'PORT': _DB_PORT,
         'CONN_MAX_AGE': 60,
         'OPTIONS': {'charset': 'utf8mb4'},
+        # The 14 SakayGuide tables are owned by the SQL scripts and are all
+        # ``managed = False``, so Django cannot build a test copy of them.
+        # MIRROR lets the test suite read the live schema instead of
+        # creating an empty one. Test cases must therefore never write to
+        # this alias; the account suite mocks every write path.
+        'TEST': {'MIRROR': 'sakayguide'},
     },
 }
 
@@ -198,5 +204,58 @@ GOOGLE_MAPS_REGION = os.environ.get('GOOGLE_MAPS_REGION', 'PH')
 LOGIN_REDIRECT_URL = '/home/'
 LOGOUT_REDIRECT_URL = '/'
 
+# ---------------------------------------------------------------------------
+# Sessions and cookies
+# ---------------------------------------------------------------------------
+# The admin and commuter portals share one session, but the role itself is
+# always re-checked on the server by apps.core.permissions, so a session can
+# never widen its own access.
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_NAME = 'sakayguide_session'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 8  # 8 hours
+
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Secure cookies are switched on automatically when the site is served over
+# HTTPS, so local XAMPP development over http still works.
+SESSION_COOKIE_SECURE = os.environ.get('SECURE_COOKIES', '').strip().lower() in (
+    '1', 'true', 'yes', 'on',
+)
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# ---------------------------------------------------------------------------
+# Password reset e-mail
+# ---------------------------------------------------------------------------
+# The console backend prints the reset e-mail to the terminal, so the flow
+# works without SMTP credentials. Set EMAIL_BACKEND in .env (or the process
+# environment) to use a real SMTP server in production.
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get(
+    'EMAIL_USE_TLS', ''
+).strip().lower() in ('1', 'true', 'yes', 'on')
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DEFAULT_FROM_EMAIL', 'SakayGuide <no-reply@sakayguide.local>',
+)
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24  # 24 hours
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Django 5.0's template context copy is incompatible with Python 3.14. The
+# custom runner installs a small test-only compatibility shim; production
+# rendering is untouched.
+TEST_RUNNER = 'mysite.test_runner.SakayGuideTestRunner'

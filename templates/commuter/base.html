@@ -1,0 +1,31 @@
+{% extends "theme/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link href="{% static 'css/dashboard.css' %}?v=4" rel="stylesheet"/>
+<link href="{% static 'css/commuter.css' %}?v=1" rel="stylesheet"/>
+{% endblock %}
+
+{# The commuter shell renders its own navigation. #}
+{% block sidebar %}{% endblock %}
+
+{% block content %}
+<div class="dh-dashboard cm-dashboard">
+
+  {% include 'commuter/sidebar.html' %}
+
+  <div class="page-wrapper">
+    <div class="page-body">
+      <div class="container-xl">
+        {% block commuter_content %}{% endblock %}
+      </div>
+    </div>
+    {% include 'theme/footer.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard.js' %}?v=4"></script>
+{% block commuter_js %}{% endblock %}
+{% endblock %}

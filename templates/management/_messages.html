@@ -1,0 +1,21 @@
+{% if messages %}
+<div class="mgmt-messages" aria-live="polite">
+  {% for message in messages %}
+  <div class="alert alert-dismissible fade show mb-2
+    {% if message.tags == 'success' %}alert-success
+    {% elif message.tags == 'warning' %}alert-warning
+    {% elif message.tags == 'error' %}alert-danger
+    {% else %}alert-info{% endif %}" role="alert">
+    <div class="d-flex align-items-start gap-2">
+      <i class="fa-solid mt-1
+        {% if message.tags == 'success' %}fa-circle-check
+        {% elif message.tags == 'warning' %}fa-triangle-exclamation
+        {% elif message.tags == 'error' %}fa-circle-xmark
+        {% else %}fa-circle-info{% endif %}"></i>
+      <div>{{ message }}</div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

@@ -1,0 +1,168 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Locations{% endblock %}
+{% block page_subtitle %}Barangays, terminals, landmarks and every point commuters can search for.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_map' %}" class="btn btn-outline-primary">
+  <i class="fa-solid fa-map-location-dot me-1"></i>Map view
+</a>
+<a href="{% url 'management_location_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add location
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-location-dot"></i></span>
+      <div><span>Total</span><strong>{{ total_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-circle-check"></i></span>
+      <div><span>Active</span><strong>{{ active_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-map-pin"></i></span>
+      <div><span>Missing coordinates</span><strong>{{ missing_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-layer-group"></i></span>
+      <div><span>Location types</span><strong>{{ location_types|length }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search name, address or barangay" aria-label="Search locations">
+      </div>
+      <select name="type" class="form-select" aria-label="Filter by location type">
+        <option value="">All types</option>
+        {% for type in location_types %}
+        <option value="{{ type }}" {% if location_type == type %}selected{% endif %}>{{ type|title }}</option>
+        {% endfor %}
+      </select>
+      <select name="status" class="form-select" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <select name="missing" class="form-select" aria-label="Filter by coordinates">
+        <option value="">Any coordinates</option>
+        <option value="1" {% if missing == '1' %}selected{% endif %}>Missing coordinates</option>
+        <option value="0" {% if missing == '0' %}selected{% endif %}>With coordinates</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or location_type or status or missing %}
+      <a href="{% url 'management_locations' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>Location</th>
+          <th>Barangay</th>
+          <th>Type</th>
+          <th>Coordinates</th>
+          <th class="text-center">Usage</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for location in locations %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ location.location_name }}</div>
+            {% if location.address %}
+            <div class="text-muted small mgmt-clip" title="{{ location.address }}">{{ location.address }}</div>
+            {% endif %}
+          </td>
+          <td>{{ location.barangay.barangay_name }}</td>
+          <td><span class="badge bg-secondary-lt">{{ location.location_type|title }}</span></td>
+          <td>
+            {% if location.latitude and location.longitude %}
+            <a href="{% url 'management_map' %}?q={{ location.location_name|urlencode }}"
+               class="text-decoration-none small" title="View on map">
+              <i class="fa-solid fa-map-pin text-green me-1"></i>
+              {{ location.latitude|floatformat:5 }}, {{ location.longitude|floatformat:5 }}
+            </a>
+            {% else %}
+            <a href="{% url 'management_location_edit' location.pk %}"
+               class="badge bg-orange-lt text-decoration-none">
+              <i class="fa-solid fa-triangle-exclamation me-1"></i>Missing
+            </a>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <span class="text-muted small" title="Route stops using this location">
+              <i class="fa-solid fa-signs-post me-1"></i>{{ location.stop_count }}
+            </span>
+            <span class="text-muted small ms-2" title="Transfer connections using this location">
+              <i class="fa-solid fa-diagram-project me-1"></i>{{ location.transfer_count }}
+            </span>
+          </td>
+          <td><span class="badge {{ location.status|status_class }}">{{ location.status|title }}</span></td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_location_edit' location.pk %}"
+                 class="btn btn-sm btn-outline-primary" title="Edit location">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_location_toggle' location.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                        title="{% if location.status == 'active' %}Deactivate{% else %}Activate{% endif %} location">
+                  <i class="fa-solid {% if location.status == 'active' %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                </button>
+              </form>
+              <form method="post" action="{% url 'management_location_delete' location.pk %}" class="d-inline"
+                    data-confirm="Delete or deactivate &quot;{{ location.location_name }}&quot;? Locations used by routes, stops, searches or saved routes are deactivated instead of deleted.">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete location">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="mgmt-empty">
+              <i class="fa-solid fa-location-dot"></i>
+              <h3>No locations match those filters</h3>
+              <p>Try clearing the search or add a new location.</p>
+              <a href="{% url 'management_locations' %}" class="btn btn-outline-primary btn-sm">Clear filters</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if locations.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=locations %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

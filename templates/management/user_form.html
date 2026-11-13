@@ -1,0 +1,191 @@
+{% extends "management/base.html" %}
+
+{% block page_title %}{% if mode == 'create' %}Add user{% else %}Edit {{ target.username }}{% endif %}{% endblock %}
+{% block page_subtitle %}
+{% if mode == 'create' %}
+Create a commuter account or another administrator account.
+{% else %}
+Update account details, role and status. Leave the password fields blank to keep the current password.
+{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_users' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-arrow-left me-1"></i>Back to users
+</a>
+{% endblock %}
+
+{% block admin_content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger" role="alert">
+    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <section class="card mgmt-card mb-3">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Account details</h3>
+            <p class="mgmt-card-sub">Uses Django's built-in user table and password hashing.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.username.id_for_label }}">Username <span class="text-danger">*</span></label>
+              {{ form.username }}
+              {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.email.id_for_label }}">E-mail address <span class="text-danger">*</span></label>
+              {{ form.email }}
+              {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.first_name.id_for_label }}">First name</label>
+              {{ form.first_name }}
+              {% for error in form.first_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.last_name.id_for_label }}">Last name</label>
+              {{ form.last_name }}
+              {% for error in form.last_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.role.id_for_label }}">Role <span class="text-danger">*</span></label>
+              {{ form.role }}
+              <div class="form-hint">
+                {% if can_manage_admins %}
+                Administrators have full control over every account, location,
+                route, fare and report in SakayGuide.
+                {% else %}
+                You can create and manage commuter accounts.
+                {% endif %}
+              </div>
+              {% for error in form.role.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label d-block">Account status</label>
+              <label class="form-check form-switch mgmt-switch">
+                {{ form.is_active }}
+                <span class="form-check-label">Account is active and can sign in</span>
+              </label>
+              {% for error in form.is_active.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card mgmt-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">
+              {% if mode == 'create' %}Set a password{% else %}Change password{% endif %}
+            </h3>
+            <p class="mgmt-card-sub">
+              {% if mode == 'create' %}
+              Use at least 8 characters and avoid common or numeric-only passwords.
+              {% else %}
+              Leave both fields blank to keep the current password.
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.password.id_for_label }}">
+                Password {% if mode == 'create' %}<span class="text-danger">*</span>{% endif %}
+              </label>
+              <div class="input-group">
+                {{ form.password }}
+                <button type="button" class="btn btn-outline-secondary mgmt-reveal"
+                        data-target="{{ form.password.id_for_label }}" aria-label="Show password">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+              {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.password_confirm.id_for_label }}">
+                Confirm password {% if mode == 'create' %}<span class="text-danger">*</span>{% endif %}
+              </label>
+              <div class="input-group">
+                {{ form.password_confirm }}
+                <button type="button" class="btn btn-outline-secondary mgmt-reveal"
+                        data-target="{{ form.password_confirm.id_for_label }}" aria-label="Show password confirmation">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+              {% for error in form.password_confirm.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+          <div class="mgmt-form-note">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Passwords are hashed with Django's password hashers. Existing
+              passwords can never be viewed or recovered from this page.</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-4">
+      {% if target %}
+      <section class="card mgmt-card mb-3">
+        <div class="card-header"><h3 class="card-title mb-0">Account overview</h3></div>
+        <div class="card-body">
+          <div class="mgmt-account-card">
+            <span class="mgmt-user-avatar {% if target.is_staff %}is-blue{% endif %}">
+              {{ target.username|first|upper }}
+            </span>
+            <div>
+              <strong>{{ target.get_full_name|default:target.username }}</strong>
+              <span>@{{ target.username }}</span>
+            </div>
+          </div>
+          <div class="mgmt-summary-row"><span>Current role</span>
+            <span class="badge {% if target.is_staff %}bg-blue-lt{% else %}bg-teal-lt{% endif %}">
+              {% if target.is_staff %}Administrator{% else %}Commuter{% endif %}
+            </span>
+          </div>
+          <div class="mgmt-summary-row"><span>Status</span>
+            <span class="badge {% if target.is_active %}bg-green-lt{% else %}bg-secondary-lt{% endif %}">
+              {% if target.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </div>
+          <div class="mgmt-summary-row"><span>Joined</span><strong>{{ target.date_joined|date:"M j, Y" }}</strong></div>
+          <div class="mgmt-summary-row"><span>Last sign-in</span>
+            <strong>{% if target.last_login %}{{ target.last_login|date:"M j, Y H:i" }}{% else %}Never{% endif %}</strong>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="card mgmt-card">
+        <div class="card-header"><h3 class="card-title mb-0">Security rules</h3></div>
+        <div class="card-body">
+          <ul class="mgmt-checklist">
+            <li><i class="fa-solid fa-user-shield"></i><span>Administrators can manage every account, including other administrators.</span></li>
+            <li><i class="fa-solid fa-ban"></i><span>You cannot deactivate or demote your own account.</span></li>
+            <li><i class="fa-solid fa-users"></i><span>The last active administrator can never be deactivated or demoted.</span></li>
+            <li><i class="fa-solid fa-clock-rotate-left"></i><span>Every account change is written to the activity log.</span></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="mgmt-form-actions">
+    <a href="{% url 'management_users' %}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk me-1"></i>
+      {% if mode == 'create' %}Create user{% else %}Save changes{% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}

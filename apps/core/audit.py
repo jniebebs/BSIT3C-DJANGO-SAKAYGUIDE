@@ -19,12 +19,14 @@ ROLE_ADMIN = 'admin'
 ROLE_COMMUTER = 'commuter'
 
 
-def sakay_user_for(django_user, role=None):
+def sakay_user_for(django_user, role=None, status=None):
     """Return the SakayGuide ``users`` row for a Django user.
 
     Existing rows are matched by e-mail. When no row exists a mirror account
     is created with an opaque password (Django remains the authentication
-    source of truth).
+    source of truth). Administrators can pass ``role``/``status`` so an
+    existing mirror row is kept in sync (for example when a commuter is
+    promoted or an account is deactivated).
     """
     if django_user is None or not getattr(django_user, 'is_authenticated', False):
         return None
@@ -33,12 +35,25 @@ def sakay_user_for(django_user, role=None):
     if email:
         existing = SakayUser.objects.filter(email__iexact=email).first()
         if existing is not None:
+            if role is None and status is None:
+                return existing
+            updates = []
+            if role and existing.role != role:
+                existing.role = role
+                updates.append('role')
+            if status and existing.status != status:
+                existing.status = status
+                updates.append('status')
+            if updates:
+                existing.save(update_fields=updates)
             return existing
 
     mirror_email = email or f'user{django_user.pk}@sakayguide.local'
     full_name = django_user.get_full_name().strip() or django_user.username
     if role is None:
         role = ROLE_ADMIN if django_user.is_staff else ROLE_COMMUTER
+    if status is None:
+        status = 'active' if django_user.is_active else 'inactive'
 
     try:
         with transaction.atomic(using=SAKAYGUIDE_ALIAS):
@@ -48,7 +63,7 @@ def sakay_user_for(django_user, role=None):
                 # Opaque value; real login uses Django's password hashers.
                 password=f'unused-{get_random_string(32)}',
                 role=role,
-                status='active',
+                status=status,
             )
     except IntegrityError:
         return SakayUser.objects.filter(email__iexact=mirror_email).first()
@@ -62,7 +77,17 @@ def log_activity(actor, action_type, table_affected, record_id=None,
     registration when the SakayGuide database is temporarily unavailable).
     """
     try:
-        actor_row = sakay_user_for(actor)
+        actor_row = sakay_user_for(
+            actor,
+            role=(
+                ROLE_ADMIN if getattr(actor, 'is_staff', False)
+                else ROLE_COMMUTER
+            ),
+            status=(
+                'active' if getattr(actor, 'is_active', False)
+                else 'inactive'
+            ),
+        )
         if actor_row is None:
             return None
         return AdminActivityLog.objects.create(

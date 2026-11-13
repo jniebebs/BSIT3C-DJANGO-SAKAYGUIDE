@@ -1,0 +1,87 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}{{ subtitle }}{% endblock %}
+
+{% block page_actions %}
+<a href="{{ cancel_url }}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-arrow-left me-1"></i>Back
+</a>
+{% endblock %}
+
+{% block admin_content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if route %}<input type="hidden" name="route_context" value="{{ route.pk }}">{% endif %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger" role="alert">
+    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <section class="card mgmt-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Record details</h3>
+            {% if route %}
+            <p class="mgmt-card-sub">Route {{ route.route_code }} &mdash; {{ route.route_name }}</p>
+            {% else %}
+            <p class="mgmt-card-sub">Fields marked with an asterisk are required.</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for field in form %}
+            <div class="{% if field.name == 'description' or field.name == 'route_description' or field.name == 'transfer_instructions' or field.name == 'address' %}col-12{% else %}col-md-6{% endif %}">
+              <label class="form-label" for="{{ field.id_for_label }}">
+                {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-hint">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-4">
+      <section class="card mgmt-card mb-3">
+        <div class="card-header"><h3 class="card-title mb-0">Good to know</h3></div>
+        <div class="card-body">
+          <ul class="mgmt-checklist">
+            <li><i class="fa-solid fa-clock-rotate-left"></i><span>This change is recorded in the administrator activity log.</span></li>
+            <li><i class="fa-solid fa-database"></i><span>Records are written directly to the SakayGuide database.</span></li>
+            <li><i class="fa-solid fa-circle-info"></i><span>Status fields let you retire records without deleting history.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      {% if route %}
+      <section class="card mgmt-card">
+        <div class="card-header"><h3 class="card-title mb-0">Route summary</h3></div>
+        <div class="card-body">
+          <div class="mgmt-summary-row"><span>Code</span><strong>{{ route.route_code }}</strong></div>
+          <div class="mgmt-summary-row"><span>Mode</span><strong>{{ route.transport_type.transport_name }}</strong></div>
+          <div class="mgmt-summary-row"><span>Journey</span><strong class="text-end">{{ route.origin.location_name }} &rarr; {{ route.destination.location_name }}</strong></div>
+          <div class="mgmt-summary-row"><span>Status</span><span class="badge {{ route.status|status_class }}">{{ route.status|title }}</span></div>
+        </div>
+      </section>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mgmt-form-actions">
+    <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk me-1"></i>{{ submit_label }}
+    </button>
+  </div>
+</form>
+{% endblock %}

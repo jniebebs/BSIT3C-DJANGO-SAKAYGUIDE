@@ -1,0 +1,173 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}User accounts{% endblock %}
+{% block page_subtitle %}Commuters and administrators from Django's built-in authentication system.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-table-list me-1"></i>Legacy user list
+</a>
+<a href="{% url 'management_user_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-user-plus me-1"></i>Add user
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-users"></i></span>
+      <div><span>Total users</span><strong>{{ total_users }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-teal"><i class="fa-solid fa-person-walking"></i></span>
+      <div><span>Commuters</span><strong>{{ total_commuters }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-user-shield"></i></span>
+      <div><span>Administrators</span><strong>{{ total_admins }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-circle-check"></i></span>
+      <div><span>Active accounts</span><strong>{{ active_users }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-info d-flex align-items-start gap-2 py-2" role="alert">
+  <i class="fa-solid fa-lock mt-1"></i>
+  <div class="small">
+    Passwords are always stored as Django password hashes and are never shown.
+    {% if can_manage_admins %}
+    As an administrator you can edit every account, including other
+    administrators, and assign either role.
+    {% else %}
+    As an administrator you can manage commuter accounts and your own profile.
+    {% endif %}
+    Administrator accounts cannot be created through the public registration page.
+  </div>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search username, name or e-mail" aria-label="Search users">
+      </div>
+      <select name="role" class="form-select" aria-label="Filter by role">
+        <option value="">All roles</option>
+        <option value="commuter" {% if role == 'commuter' %}selected{% endif %}>Commuters</option>
+        <option value="administrator" {% if role == 'administrator' %}selected{% endif %}>Administrators</option>
+      </select>
+      <select name="status" class="form-select" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or role or status %}
+      <a href="{% url 'management_users' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th>Last sign-in</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in users %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="mgmt-user-avatar {% if account.is_staff %}is-blue{% endif %}">
+                {{ account.username|first|upper }}
+              </span>
+              <div class="min-w-0">
+                <div class="fw-semibold">
+                  {{ account.get_full_name|default:account.username }}
+                  {% if account.is_self %}<span class="badge bg-azure-lt ms-1">You</span>{% endif %}
+                </div>
+                <div class="text-muted small">@{{ account.username }}{% if account.email %} &middot; {{ account.email }}{% endif %}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge {{ account.management_role|role_class }}">
+              {% if account.is_staff %}Administrator{% else %}Commuter{% endif %}
+            </span>
+          </td>
+          <td>
+            <span class="badge {% if account.is_active %}bg-green-lt{% else %}bg-secondary-lt{% endif %}">
+              {% if account.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </td>
+          <td class="text-nowrap">{{ account.date_joined|date:"M j, Y" }}</td>
+          <td class="text-nowrap">
+            {% if account.last_login %}{{ account.last_login|date:"M j, Y H:i" }}{% else %}<span class="text-muted">Never</span>{% endif %}
+          </td>
+          <td class="text-end">
+            {% if account.can_manage %}
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_user_edit' account.pk %}" class="btn btn-sm btn-outline-primary" title="Edit account">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              {% if not account.is_self %}
+              <form method="post" action="{% url 'management_user_toggle' account.pk %}" class="d-inline"
+                    data-confirm="{% if account.is_active %}Deactivate{% else %}Activate{% endif %} account &quot;{{ account.username }}&quot;?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm {% if account.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                        title="{% if account.is_active %}Deactivate{% else %}Activate{% endif %} account">
+                  <i class="fa-solid {% if account.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+            {% else %}
+            <span class="badge bg-secondary-lt" title="Administrator access is required to manage this account">
+              <i class="fa-solid fa-lock me-1"></i>Locked
+            </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="mgmt-empty">
+              <i class="fa-solid fa-users"></i>
+              <h3>No accounts match those filters</h3>
+              <p>Clear the filters or create a new user account.</p>
+              <a href="{% url 'management_users' %}" class="btn btn-outline-primary btn-sm">Clear filters</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if users.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=users %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Reports{% endblock %}
+{% block page_subtitle %}Account, network, fare and commuter demand reports built from the recorded SakayGuide data.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_searches' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-magnifying-glass me-1"></i>Route search monitoring
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+{% if stats.db_error %}
+<div class="alert alert-danger" role="alert">
+  <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ stats.db_error }}
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-users"></i></span>
+      <div><span>Registered users</span><strong>{{ stats.total_users }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-route"></i></span>
+      <div><span>Active routes</span><strong>{{ stats.active_routes|default:0 }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <div><span>Route searches</span><strong>{{ stats.total_searches|default:0 }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-map-pin"></i></span>
+      <div><span>Map coverage</span><strong>{{ stats.coverage_percent|default:0 }}%</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Account report</h3>
+          <p class="mgmt-card-sub">Administrator and commuter accounts.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Metric</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            <tr><td>Registered users</td><td class="text-end"><strong>{{ stats.total_users }}</strong></td></tr>
+            <tr><td>Commuter accounts</td><td class="text-end"><strong>{{ stats.total_commuters }}</strong></td></tr>
+            <tr><td>Administrator accounts</td><td class="text-end"><strong>{{ stats.total_admins }}</strong></td></tr>
+            <tr><td>New accounts this week</td><td class="text-end"><strong>{{ stats.new_users_week }}</strong></td></tr>
+            <tr><td>New accounts this month</td><td class="text-end"><strong>{{ stats.new_users_month }}</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-6">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Network report</h3>
+          <p class="mgmt-card-sub">Routes, stops, locations and fares.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Metric</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            <tr><td>Routes (all / active)</td><td class="text-end"><strong>{{ stats.total_routes|default:0 }} / {{ stats.active_routes|default:0 }}</strong></td></tr>
+            <tr><td>Route stops</td><td class="text-end"><strong>{{ stats.total_stops|default:0 }}</strong></td></tr>
+            <tr><td>Locations (all / active)</td><td class="text-end"><strong>{{ stats.total_locations|default:0 }} / {{ stats.active_locations|default:0 }}</strong></td></tr>
+            <tr><td>Locations with coordinates</td><td class="text-end"><strong>{{ stats.locations_with_coords|default:0 }}</strong></td></tr>
+            <tr><td>Fare records (all / active)</td><td class="text-end"><strong>{{ stats.total_fares|default:0 }} / {{ stats.active_fares|default:0 }}</strong></td></tr>
+            <tr><td>Administrator activity entries</td><td class="text-end"><strong>{{ stats.activity_logs|default:0 }}</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Commuter demand report</h3>
+          <p class="mgmt-card-sub">How commuters are using Find My Route.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Metric</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            <tr><td>All route searches</td><td class="text-end"><strong>{{ stats.total_searches|default:0 }}</strong></td></tr>
+            <tr><td>Searches this week</td><td class="text-end"><strong>{{ stats.searches_week|default:0 }}</strong></td></tr>
+            <tr><td>Searches this month</td><td class="text-end"><strong>{{ stats.searches_month|default:0 }}</strong></td></tr>
+            <tr><td>Guest searches</td><td class="text-end"><strong>{{ stats.guest_searches|default:0 }}</strong></td></tr>
+            <tr><td>Saved routes</td><td class="text-end"><strong>{{ stats.saved_routes|default:0 }}</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-6">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Routes by transport mode</h3>
+          <p class="mgmt-card-sub">Jeepney and tricycle are the supported modes.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Mode</th><th class="text-end">Routes</th><th class="text-end">Active</th></tr></thead>
+          <tbody>
+            {% for mode in stats.mode_report %}
+            <tr>
+              <td class="fw-semibold">{{ mode.transport_name }}</td>
+              <td class="text-end">{{ mode.route_count }}</td>
+              <td class="text-end"><span class="badge bg-green-lt">{{ mode.active_route_count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No transport modes recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Fare report</h3>
+          <p class="mgmt-card-sub">Active fares per category.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Category</th><th class="text-end">Avg.</th><th class="text-end">Range</th></tr></thead>
+          <tbody>
+            {% for row in stats.fare_report %}
+            <tr>
+              <td class="fw-semibold">{{ row.fare_type__fare_type_name }}</td>
+              <td class="text-end">&#8369;{{ row.average|floatformat:2 }}</td>
+              <td class="text-end text-muted text-nowrap">&#8369;{{ row.lowest }}&ndash;{{ row.highest }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No active fare records.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-4">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Top destinations</h3>
+          <p class="mgmt-card-sub">Most searched drop-off points.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Destination</th><th class="text-end">Searches</th></tr></thead>
+          <tbody>
+            {% for row in stats.top_destinations %}
+            <tr>
+              <td class="fw-semibold">{{ row.destination__location_name }}</td>
+              <td class="text-end"><span class="badge bg-purple-lt">{{ row.count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-4">No searches recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-4">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Top origins</h3>
+          <p class="mgmt-card-sub">Most searched starting points.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th>Origin</th><th class="text-end">Searches</th></tr></thead>
+          <tbody>
+            {% for row in stats.top_origins %}
+            <tr>
+              <td class="fw-semibold">{{ row.origin__location_name }}</td>
+              <td class="text-end"><span class="badge bg-blue-lt">{{ row.count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-4">No searches recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

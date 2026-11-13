@@ -1,0 +1,14 @@
+{% extends "theme/base.html" %}
+{% load static %}
+
+{# Find My Route belongs to commuter accounts, so the commuter navigation is
+   used instead of the administrator sidebar. #}
+{% block sidebar %}
+{% include 'commuter/sidebar.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="dh-dashboard cm-dashboard">
+  {% block route_content %}{% endblock %}
+</div>
+{% endblock %}

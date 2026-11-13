@@ -1,0 +1,107 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Transport &amp; fare categories{% endblock %}
+{% block page_subtitle %}Manage the local transport modes and commuter fare categories used across SakayGuide.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_transport_type_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add transport mode
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="mgmt-segment mb-3">
+  <a href="{% url 'management_transport_types' %}" class="active">
+    <i class="fa-solid fa-bus me-1"></i>Transport modes
+  </a>
+  <a href="{% url 'management_fare_types' %}">
+    <i class="fa-solid fa-tags me-1"></i>Fare categories
+  </a>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title mb-0">Transportation modes</h3>
+      <p class="mgmt-card-sub">Jeepney and tricycle are the supported local modes.</p>
+    </div>
+    <span class="badge bg-secondary-lt">{{ transport_types|length }} mode{{ transport_types|length|pluralize }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr><th>Mode</th><th>Description</th><th class="text-center">Routes</th><th>Status</th><th class="text-end">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for transport in transport_types %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="mgmt-mini-icon {% if transport.transport_name == 'Jeepney' %}is-amber{% elif transport.transport_name == 'Tricycle' %}is-purple{% else %}is-blue{% endif %}">
+                <i class="fa-solid {% if transport.transport_name == 'Tricycle' %}fa-motorcycle{% else %}fa-bus{% endif %}"></i>
+              </span>
+              <span class="fw-semibold">{{ transport.transport_name }}</span>
+              {% if transport.transport_name in supported_modes %}
+                <span class="badge bg-green-lt">Supported</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-muted small">{{ transport.description|default:"No description."|truncatechars:100 }}</td>
+          <td class="text-center"><span class="badge bg-blue-lt">{{ transport.route_count }}</span></td>
+          <td><span class="badge {{ transport.status|status_class }}">{{ transport.status|title }}</span></td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_transport_type_edit' transport.pk %}" class="btn btn-sm btn-outline-primary" title="Edit mode">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_transport_type_delete' transport.pk %}" class="d-inline"
+                    data-confirm="Delete transport mode &quot;{{ transport.transport_name }}&quot;? Modes used by routes cannot be deleted.">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete mode">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No transport modes configured.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="row g-3 mt-1">
+  <div class="col-md-6">
+    <section class="card mgmt-card">
+      <div class="card-header"><h3 class="card-title mb-0">How modes are used</h3></div>
+      <div class="card-body">
+        <p class="text-muted small mb-0">
+          SakayGuide manages <strong>Jeepney</strong> and
+          <strong>Tricycle</strong> services. Every route must reference one
+          transport mode. Deactivate a mode to stop it from appearing in new
+          route forms without breaking existing routes. Delete is only allowed
+          when no route references the mode.
+        </p>
+      </div>
+    </section>
+  </div>
+  <div class="col-md-6">
+    <section class="card mgmt-card">
+      <div class="card-header"><h3 class="card-title mb-0">Fare categories</h3></div>
+      <div class="card-body d-flex align-items-center justify-content-between gap-3">
+        <p class="text-muted small mb-0">
+          Regular, student, senior citizen, PWD and other fare categories are
+          managed separately.
+        </p>
+        <a href="{% url 'management_fare_types' %}" class="btn btn-outline-primary btn-sm text-nowrap">
+          Open fare categories
+        </a>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,443 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Dashboard overview{% endblock %}
+{% block page_subtitle %}Accounts, transit data and map coverage at a glance.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_location_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add location
+</a>
+<a href="{% url 'management_route_create' %}" class="btn btn-outline-primary">
+  <i class="fa-solid fa-route me-1"></i>Add route
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<section class="mgmt-hero mb-3">
+  <div class="mgmt-hero-text">
+    <span class="mgmt-hero-kicker">SakayGuide administrator console</span>
+    <h2>Welcome back, {{ user.first_name|default:user.username }}</h2>
+    <p>
+      Signed in as
+      <strong>{% if user.is_staff %}Administrator{% else %}Commuter{% endif %}</strong>.
+      Changes to transit records are written to the SakayGuide database and
+      recorded in the activity log.
+    </p>
+  </div>
+  <div class="mgmt-hero-actions">
+    <a href="{% url 'management_map' %}" class="btn btn-light">
+      <i class="fa-solid fa-map-location-dot me-1"></i>Open map
+    </a>
+    <a href="{% url 'management_activity' %}" class="btn btn-light">
+      <i class="fa-solid fa-clock-rotate-left me-1"></i>Activity log
+    </a>
+  </div>
+</section>
+
+{% if stats.db_error %}
+<div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+  <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+  <div class="flex-grow-1">
+    <strong>Transit database unavailable.</strong>
+    {{ stats.db_error }}
+  </div>
+  <a href="{% url 'management_dashboard' %}" class="btn btn-sm btn-danger">
+    <i class="fa-solid fa-rotate-right me-1"></i>Retry
+  </a>
+</div>
+{% endif %}
+
+{# ---------- Account + transit counters ---------- #}
+<div class="row row-deck g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_users' %}">
+      <span class="mgmt-stat-icon is-primary"><i class="fa-solid fa-users"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Total users</span>
+        <span class="mgmt-stat-value">{{ stats.total_users|default:0 }}</span>
+        <span class="mgmt-stat-meta">{{ stats.active_users|default:0 }} active &middot; {{ stats.new_users_week|default:0 }} new this week</span>
+      </span>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_users' %}?role=commuter">
+      <span class="mgmt-stat-icon is-teal"><i class="fa-solid fa-person-walking"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Commuters</span>
+        <span class="mgmt-stat-value">{{ stats.total_commuters|default:0 }}</span>
+        <span class="mgmt-stat-meta">{{ stats.inactive_users|default:0 }} inactive accounts</span>
+      </span>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_users' %}?role=administrator">
+      <span class="mgmt-stat-icon is-purple"><i class="fa-solid fa-user-shield"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Administrators</span>
+        <span class="mgmt-stat-value">{{ stats.total_admins|default:0 }}</span>
+        <span class="mgmt-stat-meta">{{ stats.active_users|default:0 }} active &middot; full system permissions</span>
+      </span>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_locations' %}">
+      <span class="mgmt-stat-icon is-green"><i class="fa-solid fa-location-dot"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Locations</span>
+        <span class="mgmt-stat-value">{{ stats.total_locations|default:0 }}</span>
+        <span class="mgmt-stat-meta">{{ stats.active_locations|default:0 }} active &middot; {{ stats.barangays|default:0 }} barangays</span>
+      </span>
+    </a>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_routes' %}">
+      <span class="mgmt-stat-icon is-blue"><i class="fa-solid fa-route"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Routes</span>
+        <span class="mgmt-stat-value">{{ stats.total_routes|default:0 }}</span>
+        <span class="mgmt-stat-meta">{{ stats.active_routes|default:0 }} active &middot; {{ stats.inactive_routes|default:0 }} inactive</span>
+      </span>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_stops' %}">
+      <span class="mgmt-stat-icon is-amber"><i class="fa-solid fa-signs-post"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Route stops</span>
+        <span class="mgmt-stat-value">{{ stats.total_stops|default:0 }}</span>
+        <span class="mgmt-stat-meta">Boarding and drop-off points</span>
+      </span>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_transfers' %}">
+      <span class="mgmt-stat-icon is-cyan"><i class="fa-solid fa-diagram-project"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Transfers</span>
+        <span class="mgmt-stat-value">{{ stats.total_transfers|default:0 }}</span>
+        <span class="mgmt-stat-meta">Cross-route connections</span>
+      </span>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="mgmt-stat" href="{% url 'management_fares' %}?status=active">
+      <span class="mgmt-stat-icon is-rose"><i class="fa-solid fa-ticket"></i></span>
+      <span class="mgmt-stat-body">
+        <span class="mgmt-stat-label">Active fares</span>
+        <span class="mgmt-stat-value">{{ stats.active_fares|default:0 }}</span>
+        <span class="mgmt-stat-meta">{{ stats.total_fares|default:0 }} fare record{{ stats.total_fares|default:0|pluralize }}</span>
+      </span>
+    </a>
+  </div>
+</div>
+
+{% if stats.sakayguide_connected %}
+{# ---------- Search activity + data health ---------- #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Route searches &mdash; last 7 days</h3>
+          <p class="mgmt-card-sub">Commuter origin/destination searches recorded in SakayGuide.</p>
+        </div>
+        <span class="badge bg-blue-lt">{{ stats.searches_week|default:0 }} this week</span>
+      </div>
+      <div class="card-body">
+        {% if stats.search_peak %}
+        <div class="mgmt-chart" role="img" aria-label="Daily route search volume for the last seven days">
+          {% for item in stats.search_activity %}
+          <div class="mgmt-chart-col">
+            <span class="mgmt-chart-value">{{ item.count }}</span>
+            <div class="mgmt-chart-track">
+              <div class="mgmt-chart-bar" style="height: {{ item.count|bar_percent:stats.search_peak.count }}%"></div>
+            </div>
+            <span class="mgmt-chart-label">{{ item.label }}</span>
+            <span class="mgmt-chart-date">{{ item.full_label }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="mgmt-empty py-4">
+          <i class="fa-solid fa-chart-column"></i>
+          <p>No route searches have been recorded yet.</p>
+        </div>
+        {% endif %}
+        <div class="mgmt-chart-footer">
+          <span><i class="fa-solid fa-magnifying-glass me-1"></i>{{ stats.total_searches|default:0 }} searches all time</span>
+          <span><i class="fa-solid fa-arrow-trend-up me-1"></i>{{ stats.searches_previous_week|default:0 }} the previous week</span>
+          <a href="{% url 'management_activity' %}">View search history <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-4">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title mb-0">Data health</h3>
+          <p class="mgmt-card-sub">Completeness of the transit records.</p>
+        </div>
+        <span class="mgmt-health {% if stats.network_health >= 80 %}is-good{% elif stats.network_health >= 50 %}is-warn{% else %}is-poor{% endif %}">
+          {{ stats.network_health|default:0 }}%
+        </span>
+      </div>
+      <div class="card-body">
+        {% for check in stats.health_checks %}
+        <div class="mgmt-health-row">
+          <div class="mgmt-health-head">
+            <span><i class="fa-solid {{ check.icon }} me-1"></i>{{ check.label }}</span>
+            <strong>{{ check.percent }}%</strong>
+          </div>
+          <div class="progress progress-sm">
+            <div class="progress-bar {% if check.percent >= 80 %}bg-green{% elif check.percent >= 50 %}bg-amber{% else %}bg-red{% endif %}"
+                 style="width: {{ check.percent }}%"></div>
+          </div>
+          <span class="mgmt-health-detail">{{ check.detail }}</span>
+        </div>
+        {% empty %}
+        <p class="text-muted mb-0">No health data available.</p>
+        {% endfor %}
+
+        <div class="mgmt-health-alert {% if stats.locations_missing_coords %}is-warn{% else %}is-good{% endif %}">
+          <i class="fa-solid {% if stats.locations_missing_coords %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+          <div>
+            {% if stats.locations_missing_coords %}
+            <strong>{{ stats.locations_missing_coords }} location{{ stats.locations_missing_coords|pluralize }}</strong>
+            still need coordinates.
+            <a href="{% url 'management_locations' %}?missing=1">Fix missing pins</a>
+            {% else %}
+            Every location has coordinates.
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+{# ---------- Recent activity + missing/attention data ---------- #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Recent administrator activity</h3>
+        <a href="{% url 'management_activity' %}" class="btn btn-sm btn-outline-secondary">View all</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Administrator</th>
+              <th>Details</th>
+              <th class="text-end">When</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in stats.recent_logs %}
+            <tr>
+              <td><span class="badge {{ log.action_type|action_class }}">{{ log.action_type }}</span></td>
+              <td class="text-nowrap">{{ log.admin.full_name }}</td>
+              <td class="mgmt-clip" title="{{ log.action_description }}">{{ log.action_description|default:"-" }}</td>
+              <td class="text-end text-muted text-nowrap">{{ log.created_at|date:"M j, H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No administrator activity recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Needs attention</h3>
+      </div>
+      <div class="card-body">
+        <div class="mgmt-attention-list">
+          <a class="mgmt-attention" href="{% url 'management_locations' %}?missing=1">
+            <span class="mgmt-attention-icon is-amber"><i class="fa-solid fa-map-pin"></i></span>
+            <span><strong>{{ stats.locations_missing_coords|default:0 }}</strong> location{{ stats.locations_missing_coords|default:0|pluralize }} without coordinates</span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="mgmt-attention" href="{% url 'management_routes' %}">
+            <span class="mgmt-attention-icon is-red"><i class="fa-solid fa-signs-post"></i></span>
+            <span><strong>{{ stats.routes_without_stops|default:0 }}</strong> route{{ stats.routes_without_stops|default:0|pluralize }} without stops</span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </a>
+          <a class="mgmt-attention" href="{% url 'management_fares' %}">
+            <span class="mgmt-attention-icon is-orange"><i class="fa-solid fa-ticket"></i></span>
+            <span><strong>{{ stats.routes_without_fares|default:0 }}</strong> route{{ stats.routes_without_fares|default:0|pluralize }} without active fares</span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </a>
+        </div>
+
+        {% if stats.missing_locations %}
+        <h4 class="mgmt-subhead">Unpinned locations</h4>
+        <ul class="mgmt-plain-list">
+          {% for location in stats.missing_locations %}
+          <li>
+            <span>
+              <strong>{{ location.location_name }}</strong>
+              <small>{{ location.barangay.barangay_name }} &middot; {{ location.location_type|title }}</small>
+            </span>
+            <a href="{% url 'management_location_edit' location.pk %}" class="btn btn-sm btn-outline-primary">Pin</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{# ---------- Recent locations + recent searches ---------- #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Recently added locations</h3>
+        <a href="{% url 'management_locations' %}" class="btn btn-sm btn-outline-secondary">Manage</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr><th>Location</th><th>Barangay</th><th>Coordinates</th><th class="text-end">Action</th></tr>
+          </thead>
+          <tbody>
+            {% for location in stats.recent_locations %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ location.location_name }}</div>
+                <div class="text-muted small">{{ location.location_type|title }}</div>
+              </td>
+              <td>{{ location.barangay.barangay_name }}</td>
+              <td>
+                {% if location.latitude and location.longitude %}
+                <span class="badge bg-green-lt">Mapped</span>
+                {% else %}
+                <span class="badge bg-orange-lt">Missing</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{% url 'management_location_edit' location.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No locations yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-6">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Latest route searches</h3>
+        <a href="{% url 'management_activity' %}" class="btn btn-sm btn-outline-secondary">Monitor</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr><th>Commuter</th><th>Journey</th><th class="text-end">When</th></tr>
+          </thead>
+          <tbody>
+            {% for search in stats.recent_searches %}
+            <tr>
+              <td>{{ search.user.full_name|default:"Guest" }}</td>
+              <td>
+                <div class="small">{{ search.origin.location_name }}</div>
+                <div class="text-muted small"><i class="fa-solid fa-arrow-down-long me-1"></i>{{ search.destination.location_name }}</div>
+              </td>
+              <td class="text-end text-muted text-nowrap">{{ search.search_date|date:"M j, H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No searches recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+{# ---------- Route mix + recently added routes ---------- #}
+<div class="row g-3">
+  <div class="col-lg-5">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Transport mode mix</h3>
+        <a href="{% url 'management_transport_types' %}" class="btn btn-sm btn-outline-secondary">Manage</a>
+      </div>
+      <div class="card-body">
+        {% for mode in stats.transport_breakdown %}
+        <div class="mgmt-mode-row">
+          <span class="mgmt-mode-icon"><i class="fa-solid fa-bus"></i></span>
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between">
+              <strong>{{ mode.transport_name }}</strong>
+              <span class="text-muted">{{ mode.route_count }} route{{ mode.route_count|pluralize }}</span>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted mb-0">No transportation modes configured.</p>
+        {% endfor %}
+
+        <h4 class="mgmt-subhead">Location types</h4>
+        <div class="mgmt-chip-row">
+          {% for row in stats.location_type_breakdown %}
+          <span class="mgmt-chip">{{ row.location_type|title }} <strong>{{ row.count }}</strong></span>
+          {% empty %}
+          <span class="text-muted small">No location data.</span>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-7">
+    <section class="card mgmt-card h-100">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Recently added routes</h3>
+        <a href="{% url 'management_routes' %}" class="btn btn-sm btn-outline-secondary">Manage</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr><th>Route</th><th>Mode</th><th>Journey</th><th>Status</th><th class="text-end">Action</th></tr>
+          </thead>
+          <tbody>
+            {% for route in stats.recent_routes %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ route.route_code }}</div>
+                <div class="text-muted small">{{ route.route_name }}</div>
+              </td>
+              <td>{{ route.transport_type.transport_name }}</td>
+              <td class="small">{{ route.origin.location_name }} &rarr; {{ route.destination.location_name }}</td>
+              <td><span class="badge {{ route.status|status_class }}">{{ route.status|title }}</span></td>
+              <td class="text-end">
+                <a href="{% url 'management_route_detail' route.pk %}" class="btn btn-sm btn-outline-primary">Open</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No routes yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

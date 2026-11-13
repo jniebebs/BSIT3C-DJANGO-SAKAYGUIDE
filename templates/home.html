@@ -36,9 +36,7 @@
           SakayGuide control center &middot; {% now "l, F j, Y" %}
         </div>
         <h1 class="dh-hero-title">
-          {% now "H" as hour %}
-          {% if hour < 12 %}Good morning{% elif hour < 18 %}Good afternoon{% else %}Good evening{% endif %},
-          {{ user.first_name|default:user.username }}
+          Welcome, {{ user.first_name|default:user.username }}
         </h1>
         <p class="dh-hero-sub mb-0">
           Here is the latest picture of Kabankalan City&rsquo;s transit network,
@@ -57,7 +55,7 @@
           </span>
           <span class="dh-hero-meta-badge">
             <i class="fa-solid fa-user-shield"></i>
-            {{ user.is_superuser|yesno:"Administrator,Instructor" }}
+            {{ user.is_staff|yesno:"Administrator,Commuter" }}
           </span>
           {% if stats.network_health is not None %}
           <span class="dh-hero-meta-badge">
@@ -67,20 +65,26 @@
           {% endif %}
         </div>
       </div>
-
       <div class="dh-hero-actions">
         <a href="{% url 'routes:route_search' %}" class="btn btn-accent">
-          <i class="fa-solid fa-route"></i> Plan a route
+          <i class="fa-solid fa-route"></i> Find my route
         </a>
-        <a href="{% url 'users:user_list' %}" class="btn btn-light">
+        {% if user.is_staff %}
+        <a href="{% url 'management_users' %}" class="btn btn-light">
           <i class="fa-solid fa-users"></i> Users
         </a>
+        {% endif %}
         <a href="{% url 'info:info_list' %}" class="btn btn-light">
           <i class="fa-solid fa-address-card"></i> Info records
         </a>
+        {% if user.is_staff %}
+        <a href="{% url 'management_dashboard' %}" class="btn btn-light">
+          <i class="fa-solid fa-gauge-high"></i> Management dashboard
+        </a>
+        {% endif %}
         {% if user.is_superuser %}
         <a href="/admin/" class="btn btn-light">
-          <i class="fa-solid fa-gear"></i> Admin
+          <i class="fa-solid fa-gear"></i> Django admin
         </a>
         {% endif %}
       </div>

@@ -1,0 +1,133 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Route stops{% endblock %}
+{% block page_subtitle %}Boarding points, landmarks and drop-off points in travel order.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_stop_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add stop
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-4">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-signs-post"></i></span>
+      <div><span>Total stops</span><strong>{{ total_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-route"></i></span>
+      <div><span>Routes with stops</span><strong>{{ routes|length }}</strong></div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-filter"></i></span>
+      <div><span>Filter results</span><strong>{{ stops.paginator.count }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search location, route code or name" aria-label="Search stops">
+      </div>
+      <select name="route" class="form-select" aria-label="Filter by route">
+        <option value="">All routes</option>
+        {% for route in routes %}
+        <option value="{{ route.pk }}" {% if route_id == route.pk|stringformat:"s" %}selected{% endif %}>
+          {{ route.route_code }} &mdash; {{ route.route_name }}
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or route_id %}
+      <a href="{% url 'management_stops' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th class="text-center">Order</th>
+          <th>Location</th>
+          <th>Barangay</th>
+          <th class="text-center">Transfer point</th>
+          <th class="text-center">Stop time</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stop in stops %}
+        <tr>
+          <td>
+            <a href="{% url 'management_route_detail' stop.route.pk %}" class="fw-semibold text-decoration-none">{{ stop.route.route_code }}</a>
+            <div class="text-muted small mgmt-clip" title="{{ stop.route.route_name }}">{{ stop.route.route_name }}</div>
+          </td>
+          <td class="text-center"><span class="mgmt-order">{{ stop.stop_order }}</span></td>
+          <td>
+            <div class="fw-semibold">{{ stop.location.location_name }}</div>
+            <div class="text-muted small">{{ stop.location.location_type|title }}</div>
+          </td>
+          <td>{{ stop.location.barangay.barangay_name }}</td>
+          <td class="text-center">
+            {% if stop.is_transfer_point %}
+            <span class="badge bg-amber-lt">Yes</span>
+            {% else %}
+            <span class="text-muted">No</span>
+            {% endif %}
+          </td>
+          <td class="text-center">{{ stop.estimated_stop_time }} min</td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_route_detail' stop.route.pk %}" class="btn btn-sm btn-outline-secondary" title="Open route">
+                <i class="fa-solid fa-up-right-from-square"></i>
+              </a>
+              <a href="{% url 'management_stop_edit' stop.pk %}" class="btn btn-sm btn-outline-primary" title="Edit stop">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_stop_delete' stop.pk %}" class="d-inline"
+                    data-confirm="Remove &quot;{{ stop.location.location_name }}&quot; from {{ stop.route.route_code }}?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove stop">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="mgmt-empty">
+              <i class="fa-solid fa-signs-post"></i>
+              <h3>No stops match those filters</h3>
+              <p>Add a stop or choose a different route.</p>
+              <a href="{% url 'management_stops' %}" class="btn btn-outline-primary btn-sm">Clear filters</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if stops.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=stops %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

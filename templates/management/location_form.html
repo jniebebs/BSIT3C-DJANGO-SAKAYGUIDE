@@ -1,0 +1,177 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block page_title %}{% if mode == 'create' %}Add location{% else %}Edit location{% endif %}{% endblock %}
+{% block page_subtitle %}
+{% if mode == 'create' %}
+Create a barangay, terminal, landmark or establishment commuters can search for.
+{% else %}
+Update the details and verified map position for {{ location.location_name }}.
+{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_locations' %}" class="btn btn-outline-secondary">
+  <i class="fa-solid fa-arrow-left me-1"></i>Back to locations
+</a>
+{% endblock %}
+
+{% block admin_content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger" role="alert">
+    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <section class="card mgmt-card mb-3">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Location details</h3>
+            <p class="mgmt-card-sub">Names and types are shown in commuter route results.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.barangay.id_for_label }}">Barangay <span class="text-danger">*</span></label>
+              {{ form.barangay }}
+              {% for error in form.barangay.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.location_name.id_for_label }}">Location name <span class="text-danger">*</span></label>
+              {{ form.location_name }}
+              {% for error in form.location_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.location_type.id_for_label }}">Location type <span class="text-danger">*</span></label>
+              {{ form.location_type }}
+              <datalist id="location-type-options">
+                {% for type in location_type_suggestions %}<option value="{{ type }}"></option>{% endfor %}
+              </datalist>
+              {% for error in form.location_type.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.status.id_for_label }}">Status</label>
+              {{ form.status }}
+              {% for error in form.status.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.address.id_for_label }}">Address</label>
+              {{ form.address }}
+              {% for error in form.address.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+              {{ form.description }}
+              <div class="form-hint">Landmarks, access notes or directions for commuters.</div>
+              {% for error in form.description.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card mgmt-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Map coordinates</h3>
+            <p class="mgmt-card-sub">Leave both blank when the position has not been verified.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.latitude.id_for_label }}">Latitude</label>
+              {{ form.latitude }}
+              <div class="form-hint">{{ form.latitude.help_text }}</div>
+              {% for error in form.latitude.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.longitude.id_for_label }}">Longitude</label>
+              {{ form.longitude }}
+              <div class="form-hint">{{ form.longitude.help_text }}</div>
+              {% for error in form.longitude.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+          <div class="mgmt-form-note">
+            <i class="fa-solid fa-crosshairs"></i>
+            <span>Use the map picker to click the exact terminal or stop. Coordinates
+              are stored as WGS&nbsp;84 decimals and can also be entered manually.</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-5">
+      <section class="card mgmt-card mgmt-picker-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title mb-0">Map picker</h3>
+            <p class="mgmt-card-sub">Search or click on the map to set the pin.</p>
+          </div>
+          {% if google_maps.enabled %}
+          <span class="badge bg-green-lt">Google Maps</span>
+          {% else %}
+          <span class="badge bg-secondary-lt">Manual mode</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          {% if google_maps.enabled %}
+          <div class="mgmt-map-search">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input type="text" class="form-control" id="location-picker-search"
+                     placeholder="Search a place or address" autocomplete="off">
+              <button class="btn btn-outline-primary" type="button" id="location-picker-search-btn">Search</button>
+            </div>
+          </div>
+          <div id="location-picker-map" class="mgmt-map mgmt-map-picker"
+               data-lat-field="id_latitude" data-lng-field="id_longitude"
+               aria-label="Location map picker"></div>
+          <div class="mgmt-picker-status" id="location-picker-status">
+            <i class="fa-solid fa-location-crosshairs"></i>
+            <span>Click the map to drop the pin, or type coordinates directly.</span>
+          </div>
+          {{ google_maps|json_script:"google-maps-config" }}
+          {% else %}
+          <div class="mgmt-map-placeholder">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <h4>Google Maps key not configured</h4>
+            <p>Add <code>GOOGLE_MAPS_API_KEY</code> to your local <code>.env</code>
+              file to enable the map picker. You can still enter verified
+              coordinates manually on the left.</p>
+            <a href="{% url 'management_map' %}" class="btn btn-sm btn-outline-primary">
+              <i class="fa-solid fa-map me-1"></i>Open map management
+            </a>
+          </div>
+          {% endif %}
+
+          <div class="mgmt-picker-summary">
+            <div><span>Latitude</span><strong id="location-picker-lat">{{ form.latitude.value|default:"Not set" }}</strong></div>
+            <div><span>Longitude</span><strong id="location-picker-lng">{{ form.longitude.value|default:"Not set" }}</strong></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="mgmt-form-actions">
+    <a href="{% url 'management_locations' %}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk me-1"></i>
+      {% if mode == 'create' %}Create location{% else %}Save changes{% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block admin_js %}
+{% if google_maps.enabled %}
+<script src="{% static 'js/admin-maps-loader.js' %}?v=1"></script>
+<script src="{% static 'js/admin-location-picker.js' %}?v=1"></script>
+{% endif %}
+{% endblock %}

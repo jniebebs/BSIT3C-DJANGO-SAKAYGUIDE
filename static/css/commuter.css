@@ -1,0 +1,286 @@
+/* ------------------------------------------------------------------
+   SakayGuide commuter portal
+   Layered on top of Tabler + app-theme.css + dashboard.css.
+   ------------------------------------------------------------------ */
+
+.cm-dashboard {
+  --cm-accent: #22d3ee;
+  --cm-accent-soft: rgba(34, 211, 238, 0.14);
+  --cm-jeepney: #f59e0b;
+  --cm-tricycle: #8b5cf6;
+  --cm-other: #22c55e;
+}
+
+/* The commuter shell keeps the same sidebar geometry as the admin one. */
+.dh-sidebar-commuter {
+  --tblr-navbar-bg: #0d2430;
+  background:
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--cm-accent) 16%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, #102b38 0%, #0c1f2a 100%);
+}
+
+.dh-sidebar-commuter .navbar-nav .nav-link.active {
+  background-image: linear-gradient(
+    135deg,
+    var(--cm-accent) 0%,
+    color-mix(in srgb, var(--cm-accent) 72%, #0b2430) 100%
+  );
+  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--cm-accent) 50%, transparent);
+}
+
+.dh-sidebar-commuter .dh-brand-mark {
+  background: linear-gradient(135deg, var(--cm-accent) 0%, #0891b2 100%);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--cm-accent) 70%, transparent);
+}
+
+.dh-sidebar-commuter .dh-avatar {
+  background: linear-gradient(135deg, var(--cm-accent) 0%, #0891b2 100%);
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--cm-accent) 70%, transparent);
+}
+
+@media (max-width: 991.98px) {
+  .dh-sidebar-commuter .navbar-collapse {
+    background: #0d2430;
+  }
+}
+
+/* Hero ------------------------------------------------------------- */
+.cm-hero {
+  background:
+    radial-gradient(70% 120% at 88% -10%,
+      color-mix(in srgb, var(--cm-accent) 42%, transparent) 0%,
+      transparent 58%),
+    radial-gradient(60% 100% at 8% 110%,
+      color-mix(in srgb, var(--cm-accent-6) 26%, transparent) 0%,
+      transparent 60%),
+    linear-gradient(125deg, #0d2430 0%, #12384a 46%, #0f2c3f 100%);
+}
+
+/* Page header ------------------------------------------------------ */
+.cm-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cm-pretitle {
+  color: var(--cm-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cm-title {
+  margin: 0.15rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.cm-subtitle {
+  max-width: 44rem;
+  margin: 0.35rem 0 0;
+  color: var(--tblr-muted);
+  font-size: 0.86rem;
+}
+
+.cm-head-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Quick search ----------------------------------------------------- */
+.cm-quick-search .form-select {
+  min-height: 2.6rem;
+}
+
+/* Transportation option cards -------------------------------------- */
+.cm-option-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius);
+  background: var(--tblr-bg-surface);
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cm-option-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--tblr-primary) 35%, var(--tblr-border-color));
+  box-shadow: 0 14px 26px -18px rgba(23, 26, 54, 0.45);
+}
+
+.cm-option-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cm-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex-shrink: 0;
+  border-radius: 0.6rem;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.cm-option-icon.is-jeepney {
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  box-shadow: 0 6px 14px -6px rgba(217, 119, 6, 0.7);
+}
+
+.cm-option-icon.is-tricycle {
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  box-shadow: 0 6px 14px -6px rgba(124, 58, 237, 0.7);
+}
+
+.cm-option-icon.is-other {
+  background: linear-gradient(135deg, #34d399, #15803d);
+  box-shadow: 0 6px 14px -6px rgba(21, 128, 61, 0.7);
+}
+
+.cm-option-mode {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cm-option-code {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--tblr-muted);
+}
+
+.cm-option-route {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  color: var(--tblr-body-color);
+  min-width: 0;
+}
+
+.cm-option-place {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.cm-option-arrow {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--tblr-muted);
+}
+
+.cm-option-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.85rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--tblr-border-color);
+  font-size: 0.7rem;
+  color: var(--tblr-muted);
+}
+
+.cm-option-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.cm-option-fare {
+  font-weight: 800;
+  color: var(--cm-accent);
+}
+
+.cm-option-fare.is-muted {
+  font-weight: 600;
+  color: var(--tblr-muted);
+}
+
+/* Saved routes ----------------------------------------------------- */
+.cm-saved-route {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius);
+  color: inherit;
+  text-decoration: none;
+  background: var(--tblr-bg-surface);
+  transition: border-color 0.18s ease, transform 0.18s ease, background-color 0.18s ease;
+}
+
+.cm-saved-route:hover {
+  color: inherit;
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cm-accent) 40%, var(--tblr-border-color));
+  background: color-mix(in srgb, var(--cm-accent) 4%, var(--tblr-bg-surface));
+}
+
+.cm-saved-name {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-saved-path {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--tblr-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Role note -------------------------------------------------------- */
+.cm-role-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--tblr-border-radius);
+  border: 1px solid color-mix(in srgb, var(--cm-accent) 25%, transparent);
+  background: var(--cm-accent-soft);
+  font-size: 0.76rem;
+  color: var(--tblr-body-color);
+}
+
+.cm-role-note i {
+  color: var(--cm-accent);
+  margin-top: 0.1rem;
+}
+
+/* Small screens ---------------------------------------------------- */
+@media (max-width: 575.98px) {
+  .cm-title {
+    font-size: 1.3rem;
+  }
+
+  .cm-head-actions {
+    margin-left: 0;
+  }
+}

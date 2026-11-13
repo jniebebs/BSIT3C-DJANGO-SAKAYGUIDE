@@ -116,12 +116,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if u.is_superuser %}
-                            <span class="badge bg-purple-lt text-purple">Superuser</span>
-                            {% elif u.is_staff %}
-                            <span class="badge bg-warning-lt text-warning">Staff</span>
+                            {% if u.is_staff %}
+                            <span class="badge bg-warning-lt text-warning">Administrator</span>
                             {% else %}
-                            <span class="badge bg-secondary-lt text-secondary">User</span>
+                            <span class="badge bg-secondary-lt text-secondary">Commuter</span>
                             {% endif %}
                         </td>
                         <td>

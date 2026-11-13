@@ -1,0 +1,181 @@
+{% extends "management/base.html" %}
+{% load management_tags %}
+
+{% block page_title %}Routes{% endblock %}
+{% block page_subtitle %}Jeepney and tricycle routes with boarding points, fares and transfers.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'management_map' %}" class="btn btn-outline-primary">
+  <i class="fa-solid fa-map-location-dot me-1"></i>Route map
+</a>
+<a href="{% url 'management_route_create' %}" class="btn btn-primary">
+  <i class="fa-solid fa-plus me-1"></i>Add route
+</a>
+{% endblock %}
+
+{% block admin_content %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-route"></i></span>
+      <div><span>Total routes</span><strong>{{ total_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-circle-check"></i></span>
+      <div><span>Active routes</span><strong>{{ active_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-bus"></i></span>
+      <div><span>Jeepney routes</span><strong>{{ jeepney_count }}</strong></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-motorcycle"></i></span>
+      <div><span>Tricycle routes</span><strong>{{ tricycle_count }}</strong></div>
+    </div>
+  </div>
+</div>
+
+{# Jeepney and Tricycle are the two supported local modes. #}
+<div class="mgmt-segment mb-3">
+  <a href="{% url 'management_routes' %}"
+     class="{% if not mode %}active{% endif %}">
+    <i class="fa-solid fa-list me-1"></i>All routes
+  </a>
+  <a href="{% url 'management_routes' %}?mode=Jeepney"
+     class="{% if mode == 'Jeepney' %}active{% endif %}">
+    <i class="fa-solid fa-bus me-1"></i>Jeepney
+  </a>
+  <a href="{% url 'management_routes' %}?mode=Tricycle"
+     class="{% if mode == 'Tricycle' %}active{% endif %}">
+    <i class="fa-solid fa-motorcycle me-1"></i>Tricycle
+  </a>
+</div>
+
+<section class="card mgmt-card">
+  <div class="card-header mgmt-filter-header">
+    <form method="get" class="mgmt-filter-form" role="search">
+      {% if mode %}<input type="hidden" name="mode" value="{{ mode }}">{% endif %}
+      <div class="mgmt-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="Search code, name or terminal" aria-label="Search routes">
+      </div>
+      <select name="transport" class="form-select" aria-label="Filter by transport mode">
+        <option value="">All transport modes</option>
+        {% for option in transport_types %}
+        <option value="{{ option.pk }}" {% if transport_type == option.pk|stringformat:"s" %}selected{% endif %}>{{ option.transport_name }}</option>
+        {% endfor %}
+      </select>
+      <select name="status" class="form-select" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      {% if query or transport_type or status or mode %}
+      <a href="{% url 'management_routes' %}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>Mode</th>
+          <th>Origin &rarr; destination</th>
+          <th class="text-center">Stops</th>
+          <th class="text-end">Lowest fare</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for route in routes %}
+        <tr>
+          <td>
+            <a href="{% url 'management_route_detail' route.pk %}" class="fw-semibold text-decoration-none">
+              {{ route.route_code }}
+            </a>
+            <div class="text-muted small mgmt-clip" title="{{ route.route_name }}">{{ route.route_name }}</div>
+          </td>
+          <td>
+            {% if route.transport_type.transport_name == 'Jeepney' %}
+              <span class="badge bg-orange-lt"><i class="fa-solid fa-bus me-1"></i>{{ route.transport_type.transport_name }}</span>
+            {% elif route.transport_type.transport_name == 'Tricycle' %}
+              <span class="badge bg-purple-lt"><i class="fa-solid fa-motorcycle me-1"></i>{{ route.transport_type.transport_name }}</span>
+            {% else %}
+              <span class="badge bg-secondary-lt">{{ route.transport_type.transport_name }}</span>
+            {% endif %}
+          </td>
+          <td class="small">
+            <div><i class="fa-solid fa-circle-dot text-green me-1"></i>{{ route.origin.location_name }}</div>
+            <div class="text-muted"><i class="fa-solid fa-location-dot text-red me-1"></i>{{ route.destination.location_name }}</div>
+          </td>
+          <td class="text-center">{{ route.stop_count }}</td>
+          <td class="text-end">
+            {% if route.min_fare is not None %}
+            <span class="fw-semibold">&#8369;{{ route.min_fare|floatformat:2 }}</span>
+            {% else %}
+            <span class="badge bg-orange-lt">No fare</span>
+            {% endif %}
+          </td>
+          <td><span class="badge {{ route.status|status_class }}">{{ route.status|title }}</span></td>
+          <td class="text-end">
+            <div class="mgmt-row-actions">
+              <a href="{% url 'management_route_detail' route.pk %}"
+                 class="btn btn-sm btn-outline-primary" title="Open route">
+                <i class="fa-solid fa-up-right-from-square"></i>
+              </a>
+              <a href="{% url 'management_route_edit' route.pk %}"
+                 class="btn btn-sm btn-outline-secondary" title="Edit route">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="post" action="{% url 'management_route_toggle' route.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                        title="{% if route.status == 'active' %}Deactivate{% else %}Activate{% endif %} route">
+                  <i class="fa-solid {% if route.status == 'active' %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                </button>
+              </form>
+              <form method="post" action="{% url 'management_route_delete' route.pk %}" class="d-inline"
+                    data-confirm="Delete or deactivate route &quot;{{ route.route_code }}&quot;? Routes with stops, fares, landmarks or transfers are deactivated instead of deleted.">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete route">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="mgmt-empty">
+              <i class="fa-solid fa-route"></i>
+              <h3>No routes match those filters</h3>
+              <p>Clear the filters or create a new transit route.</p>
+              <a href="{% url 'management_routes' %}" class="btn btn-outline-primary btn-sm">Clear filters</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if routes.paginator.count %}
+  <div class="card-footer">
+    {% include 'management/_pagination.html' with page_obj=routes %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
