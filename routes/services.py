@@ -4,7 +4,10 @@ Everything here is computed from records already stored in sakayguide_db
 (routes, route_stops, route_transfers, route_fares, route_landmarks,
 locations.latitude / locations.longitude). Nothing is invented:
 
-* a journey is only returned when real rows support it;
+* a journey is only returned when real rows support it: recorded routes can
+  be ridden in either direction, and rides change at recorded transfer
+  points (a ``route_transfers`` row supplies the exact instruction, waiting
+  time and extra fare when its route pair matches);
 * map markers are only drawn for locations with verified coordinates
   (locations.latitude / longitude, populated from OpenStreetMap);
 * when coordinates are missing the place stays in the journey
@@ -123,6 +126,41 @@ def _load_network():
         ).select_related('transfer_location', 'from_route', 'to_route')
     )
 
+    # Indexes used by the bidirectional journey search.
+    #
+    # A recorded route may be ridden in either direction: jeepneys, buses,
+    # vans and tricycles all make the return trip even when the database only
+    # stores one ordered list of stops. ``routes_at_location`` answers
+    # "which routes can I board here?" and the transfer indexes let a
+    # commuter alight at any recorded transfer point shared with another
+    # route (the route_transfers row is then used for the exact instructions,
+    # waiting time and extra fare when it exists).
+    routes_at_location = {}
+    for route_id, entries in stops_by_route.items():
+        for entry in entries:
+            routes_at_location.setdefault(entry['location_id'], set()).add(
+                route_id
+            )
+
+    transfer_hints = {
+        (
+            transfer.from_route_id,
+            transfer.transfer_location_id,
+            transfer.to_route_id,
+        ): transfer
+        for transfer in transfers
+    }
+
+    transfer_locations = {
+        transfer.transfer_location_id for transfer in transfers
+    }
+    transfer_locations.update(
+        entry['location_id']
+        for entries in stops_by_route.values()
+        for entry in entries
+        if entry['is_transfer']
+    )
+
     # Active regular fares; the latest effective_date wins.
     fares = {}
     for f in RouteFare.objects.filter(
@@ -147,7 +185,8 @@ def _load_network():
 
     return (
         routes, stops_by_route, order_index, transfers, fares, landmarks,
-        locations_by_id,
+        locations_by_id, routes_at_location, transfer_hints,
+        transfer_locations,
     )
 
 
@@ -155,15 +194,24 @@ def _load_network():
 # Journey building
 # ---------------------------------------------------------------------------
 def _make_leg(route_id, from_location_id, to_location_id, ctx):
-    """Build one ride (leg) of a journey between two stops of one route."""
+    """Build one ride (leg) of a journey between two stops of one route.
+
+    The recorded stop list can be travelled in either direction, so the
+    segment is reversed when the destination comes before the origin on the
+    stored route. ``minutes`` is the absolute difference of the recorded
+    cumulative stop times, which stays correct for the return trip.
+    """
     (routes, stops_by_route, order_index, _, fares, landmarks,
-     locations_by_id) = ctx
+     locations_by_id, _, _, _) = ctx
     index = order_index[route_id]
     i, j = index[from_location_id], index[to_location_id]
-    segment = stops_by_route[route_id][i:j + 1]
+    if i <= j:
+        segment = stops_by_route[route_id][i:j + 1]
+    else:
+        segment = list(reversed(stops_by_route[route_id][j:i + 1]))
     start, end = segment[0], segment[-1]
 
-    minutes = end['time'] - start['time']
+    minutes = abs(end['time'] - start['time'])
     if minutes <= 0:
         minutes = routes[route_id].estimated_travel_time
 
@@ -208,18 +256,47 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
     }
 
 
-def _transfer_dict(transfer):
+def _transfer_dict(transfer, from_route=None, to_route=None,
+                   location=None, next_alight=None):
+    """Describe a transfer.
+
+    When a recorded ``route_transfers`` row matches the route pair and the
+    location, its instruction, waiting time and additional fare are used.
+    Otherwise a plain, factual instruction is built from the two routes -
+    no fare or waiting time is invented.
+    """
+    if transfer is not None:
+        return {
+            'location_id': transfer.transfer_location_id,
+            'location': transfer.transfer_location,
+            'location_name': transfer.transfer_location.location_name,
+            'instructions': transfer.transfer_instructions,
+            'time': transfer.estimated_transfer_time,
+            'fare': transfer.additional_estimated_fare,
+            'from_code': from_route.route_code,
+            'from_name': from_route.route_name,
+            'to_code': to_route.route_code,
+            'to_name': to_route.route_name,
+            'recorded': True,
+        }
+
+    mode = to_route.transport_type.transport_name.lower()
+    target = f' towards {next_alight}' if next_alight else ''
     return {
-        'location_id': transfer.transfer_location_id,
-        'location': transfer.transfer_location,
-        'location_name': transfer.transfer_location.location_name,
-        'instructions': transfer.transfer_instructions,
-        'time': transfer.estimated_transfer_time,
-        'fare': transfer.additional_estimated_fare,
-        'from_code': transfer.from_route.route_code,
-        'from_name': transfer.from_route.route_name,
-        'to_code': transfer.to_route.route_code,
-        'to_name': transfer.to_route.route_name,
+        'location_id': location.location_id,
+        'location': location,
+        'location_name': location.location_name,
+        'instructions': (
+            f'Alight at {location.location_name}. Board the {mode} '
+            f'{to_route.route_code} ({to_route.route_name}){target}.'
+        ),
+        'time': 0,
+        'fare': Decimal('0.00'),
+        'from_code': from_route.route_code,
+        'from_name': from_route.route_name,
+        'to_code': to_route.route_code,
+        'to_name': to_route.route_name,
+        'recorded': False,
     }
 
 
@@ -231,7 +308,7 @@ def _build_steps(origin_name, destination_name, legs, transfers):
         mode = route.transport_type.transport_name.lower()
         steps.append(
             f'Board the {mode} {route.route_code} ({route.route_name}) '
-            f'at {leg["board_at"]}.'
+            f'at {leg["board_at"]} towards {leg["alight_at"]}.'
         )
         intermediate = [s['name'] for s in leg['stops'][1:-1]]
         if intermediate:
@@ -300,7 +377,7 @@ def _bounds_and_center(points):
     return bounds, center
 
 
-def _journey_map_points(origin, destination, legs, transfers, locations_by_id):
+def _journey_map_points(origin, destination, legs, transfers):
     """Collect map points and unverified names for one journey."""
     leg_payloads = []
     all_points = []
@@ -317,17 +394,14 @@ def _journey_map_points(origin, destination, legs, transfers, locations_by_id):
             all_points.append(coord)
         return coord
 
-    origin_name = origin.location_name
-    destination_name = destination.location_name
-
     for leg_index, leg in enumerate(legs):
         stops = []
         for stop in leg['stops']:
             location = stop['location']
             coord = remember(location, stop['name'])
-            if stop['name'] == origin_name:
+            if stop['location_id'] == origin.location_id:
                 role = 'origin'
-            elif stop['name'] == destination_name:
+            elif stop['location_id'] == destination.location_id:
                 role = 'destination'
             else:
                 role = 'intermediate'
@@ -406,12 +480,10 @@ def _journey_map_points(origin, destination, legs, transfers, locations_by_id):
     }
 
 
-def _build_journey_map(origin, destination, legs, transfers, locations_by_id,
+def _build_journey_map(origin, destination, legs, transfers,
                        total_time=None, total_distance=None):
     """Full map payload for one journey option."""
-    geometry = _journey_map_points(
-        origin, destination, legs, transfers, locations_by_id,
-    )
+    geometry = _journey_map_points(origin, destination, legs, transfers)
     return {
         'label': (
             f'{origin.location_name} to {destination.location_name}'
@@ -446,7 +518,7 @@ def locations_map(origin, destination):
     the commuter sees where they are - without any fake connecting line.
     """
     geometry = _journey_map_points(
-        origin, destination, legs=[], transfers=[], locations_by_id={},
+        origin, destination, legs=[], transfers=[],
     )
     return {
         'label': f'{origin.location_name} to {destination.location_name}',
@@ -467,20 +539,21 @@ def locations_map(origin, destination):
     }
 
 
-def _finalize(raw_journey, origin, destination, locations_by_id,
-              include_map=True):
+def _finalize(raw_journey, origin, destination, include_map=True):
     legs = raw_journey['legs']
-    # The frontier search can append the transfer that created the current
-    # state once more when its turn to complete the journey comes round;
-    # keep each transfer record exactly once, in travel order.
+    # One transfer descriptor per ride change, in travel order.
     seen_transfers = set()
-    unique_details = []
+    transfers = []
     for transfer in raw_journey['transfer_details']:
-        if transfer.transfer_id in seen_transfers:
+        key = (
+            transfer['location_id'],
+            transfer['from_code'],
+            transfer['to_code'],
+        )
+        if key in seen_transfers:
             continue
-        seen_transfers.add(transfer.transfer_id)
-        unique_details.append(transfer)
-    transfers = [_transfer_dict(t) for t in unique_details]
+        seen_transfers.add(key)
+        transfers.append(transfer)
 
     # Per-ride line colours, matching static/js/route-map.js palette.
     for leg_index, leg in enumerate(legs):
@@ -519,7 +592,7 @@ def _finalize(raw_journey, origin, destination, locations_by_id,
         ),
         'map': (
             _build_journey_map(
-                origin, destination, legs, transfers, locations_by_id,
+                origin, destination, legs, transfers,
                 total_time=total_time, total_distance=total_distance,
             )
             if include_map else None
@@ -535,7 +608,11 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
     """Return every journey the database supports for this pair.
 
     Direct rides are found first, then multi-ride journeys are discovered by
-    following ``route_transfers`` rows (up to MAX_LEGS rides).
+    riding the recorded routes in either direction and transferring at
+    recorded transfer points (up to MAX_LEGS rides). A ``route_transfers``
+    row supplies the exact instruction, waiting time and extra fare when its
+    route pair matches; otherwise a factual board-the-next-route instruction
+    is generated without inventing a fare or waiting time.
 
     ``network`` may be a context returned by ``_load_network()`` so repeated
     searches reuse the same in-memory indexes. ``include_map=False`` skips
@@ -547,11 +624,19 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
         destination = Location.objects.get(pk=destination_id)
 
     ctx = network if network is not None else _load_network()
-    routes, stops_by_route, order_index, transfers, fares, landmarks, \
-        locations_by_id = ctx
+    (routes, stops_by_route, order_index, _, fares, landmarks,
+     locations_by_id, routes_at_location, transfer_hints,
+     transfer_locations) = ctx
 
     journeys = []
     seen = set()
+    ordered_route_ids = sorted(
+        routes, key=lambda route_id: routes[route_id].route_code
+    )
+    transfer_hint_stops = {
+        (route_id, location_id)
+        for route_id, location_id, _ in transfer_hints
+    }
 
     def add(raw):
         key = tuple(
@@ -562,47 +647,63 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
             return
         seen.add(key)
         journeys.append(
-            _finalize(
-                raw, origin, destination, locations_by_id,
-                include_map=include_map,
-            )
+            _finalize(raw, origin, destination, include_map=include_map)
         )
 
-    # 1) Direct rides: origin appears before destination on the same route.
-    for route_id in routes:
+    def is_transfer_stop(route_id, entry):
+        """A stop may be used to change rides when the database marks it."""
+        location_id = entry['location_id']
+        return bool(
+            entry.get('is_transfer')
+            or location_id in transfer_locations
+            or (route_id, location_id) in transfer_hint_stops
+        )
+
+    def matching_transfer(route_id, next_route_id, location_id, forward):
+        """Recorded transfer details for this exact route pair, if usable.
+
+        Reverse rides get a direction-aware generated instruction instead,
+        because a recorded note that says "board the jeepney to Bantayan"
+        would be wrong when travelling the other way.
+        """
+        hint = transfer_hints.get((route_id, location_id, next_route_id))
+        if hint is None or not forward:
+            return None
+        return hint
+
+    # 1) Direct rides: both endpoints appear on the same route, in either
+    #    direction of the recorded stop list.
+    for route_id in ordered_route_ids:
         index = order_index.get(route_id, {})
-        if (
-            origin_id in index
-            and destination_id in index
-            and index[origin_id] < index[destination_id]
-        ):
+        if origin_id in index and destination_id in index:
             add({
                 'legs': [_make_leg(route_id, origin_id, destination_id, ctx)],
                 'transfer_details': [],
             })
 
-    # 2) Multi-ride journeys through valid transfer connections.
+    # 2) Multi-ride journeys through recorded transfer points and stops
+    #    that the network marks as interchange points.
     queue = deque()
-    for route_id in routes:
+    for route_id in ordered_route_ids:
         index = order_index.get(route_id, {})
         if origin_id not in index:
             continue
-        for transfer in transfers:
-            if transfer.from_route_id != route_id:
+        for entry in stops_by_route[route_id]:
+            stop_location = entry['location_id']
+            if stop_location in (origin_id, destination_id):
                 continue
-            stop_location = transfer.transfer_location_id
-            if stop_location == origin_id:
+            if not is_transfer_stop(route_id, entry):
                 continue
-            if stop_location not in index:
-                continue
-            if index[stop_location] <= index[origin_id]:
+            if not (routes_at_location.get(stop_location, set()) - {route_id}):
                 continue
             leg = _make_leg(route_id, origin_id, stop_location, ctx)
-            queue.append((stop_location, route_id, [leg], [transfer]))
+            queue.append((stop_location, route_id, [leg], [], {route_id}))
 
     visited = set()
     while queue and len(journeys) < MAX_JOURNEYS:
-        current_location, route_id, legs, used_transfers = queue.popleft()
+        current_location, route_id, legs, transfer_details, used_routes = (
+            queue.popleft()
+        )
         state = (
             current_location,
             route_id,
@@ -617,51 +718,95 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
         if len(legs) >= MAX_LEGS:
             continue
 
-        for transfer in transfers:
-            if transfer.from_route_id != route_id:
-                continue
-            if transfer.transfer_location_id != current_location:
-                continue
+        current_route = routes[route_id]
+        current_location_obj = locations_by_id.get(current_location)
+        if current_location_obj is None:
+            current_location_obj = next(
+                entry['location']
+                for entry in stops_by_route[route_id]
+                if entry['location_id'] == current_location
+            )
 
-            next_route_id = transfer.to_route_id
+        # Never send the commuter back through a place the journey has
+        # already passed; that only produces useless round trips.
+        visited_locations = {origin_id}
+        for leg in legs:
+            visited_locations.update(
+                stop['location_id'] for stop in leg['stops']
+            )
+
+        next_route_ids = sorted(
+            routes_at_location.get(current_location, set()) - used_routes,
+            key=lambda next_route_id: routes[next_route_id].route_code,
+        )
+        for next_route_id in next_route_ids:
             next_index = order_index.get(next_route_id, {})
             if current_location not in next_index:
                 continue
+            next_route = routes[next_route_id]
 
             # Can the next ride reach the destination directly?
             if (
                 destination_id in next_index
-                and next_index[destination_id] > next_index[current_location]
+                and destination_id not in visited_locations
             ):
-                leg = _make_leg(
-                    next_route_id, current_location, destination_id, ctx
+                next_leg = _make_leg(
+                    next_route_id, current_location, destination_id, ctx,
+                )
+                forward = (
+                    next_index[destination_id]
+                    > next_index[current_location]
+                )
+                hint = matching_transfer(
+                    route_id, next_route_id, current_location, forward,
                 )
                 add({
-                    'legs': legs + [leg],
-                    'transfer_details': used_transfers + [transfer],
+                    'legs': legs + [next_leg],
+                    'transfer_details': transfer_details + [
+                        _transfer_dict(
+                            hint, current_route, next_route,
+                            current_location_obj, next_leg['alight_at'],
+                        )
+                    ],
                 })
 
-            # Or continue to yet another transfer point (multi-transfer trip)?
+            # Or continue to yet another transfer point (multi-transfer
+            # trip)?
             if len(legs) + 1 >= MAX_LEGS:
                 continue
-            for next_transfer in transfers:
-                if next_transfer.from_route_id != next_route_id:
+            for entry in stops_by_route[next_route_id]:
+                next_location = entry['location_id']
+                if next_location in (current_location, destination_id):
                     continue
-                next_location = next_transfer.transfer_location_id
-                if next_location == current_location:
+                if next_location in visited_locations:
                     continue
-                if next_location not in next_index:
+                if not is_transfer_stop(next_route_id, entry):
                     continue
-                if next_index[next_location] <= next_index[current_location]:
+                if not (
+                    routes_at_location.get(next_location, set())
+                    - used_routes - {next_route_id}
+                ):
                     continue
-                leg = _make_leg(
-                    next_route_id, current_location, next_location, ctx
+                next_leg = _make_leg(
+                    next_route_id, current_location, next_location, ctx,
+                )
+                forward = (
+                    next_index[next_location] > next_index[current_location]
+                )
+                hint = matching_transfer(
+                    route_id, next_route_id, current_location, forward,
                 )
                 queue.append((
                     next_location,
                     next_route_id,
-                    legs + [leg],
-                    used_transfers + [transfer],
+                    legs + [next_leg],
+                    transfer_details + [
+                        _transfer_dict(
+                            hint, current_route, next_route,
+                            current_location_obj, next_leg['alight_at'],
+                        )
+                    ],
+                    used_routes | {next_route_id},
                 ))
 
     return journeys
@@ -669,7 +814,9 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
 
 def fastest_travel_minutes(origin_id, destination_id):
     """Return the quickest estimated journey time for a pair, or ``None``."""
-    journeys = find_journeys(origin_id, destination_id)
+    journeys = find_journeys(
+        origin_id, destination_id, include_map=False,
+    )
     if not journeys:
         return None
     return min(journey['total_time'] for journey in journeys)
@@ -855,14 +1002,20 @@ def transport_options():
             regular_fare = fare
 
         distance = route_distance_km(stops)
+        stop_location_ids = sorted({
+            stop.location_id for stop in stops
+        } | {route.origin_id, route.destination_id})
         options.append({
             'route_id': route.route_id,
             'route_code': route.route_code,
             'route_name': route.route_name,
             'transport_name': route.transport_type.transport_name,
             'transport_key': route.transport_type.transport_name.lower(),
+            'origin_id': route.origin_id,
+            'destination_id': route.destination_id,
             'origin_name': route.origin.location_name,
             'destination_name': route.destination.location_name,
+            'stop_location_ids': stop_location_ids,
             'boarding_point': (
                 stops[0].location.location_name if stops
                 else route.origin.location_name

@@ -252,6 +252,119 @@
     preview.hidden = false;
   }
 
+  /* ---- Available Transportation Options panel --------------------------
+     The search page lists every active route. As soon as the commuter
+     chooses a starting point and/or destination, the panel narrows to the
+     routes that actually serve those locations. The data comes from the same
+     database rows as the journey search (stop_location_ids), so a newly
+     added active route appears here automatically. */
+  var transportPanel = document.getElementById('sg-transport-options');
+  var transportCards = transportPanel
+    ? Array.prototype.slice.call(
+        transportPanel.querySelectorAll('[data-transport-option]'))
+    : [];
+  var transportSummary = transportPanel
+    ? transportPanel.querySelector('[data-transport-options-summary]')
+    : null;
+  var transportEmpty = transportPanel
+    ? transportPanel.querySelector('[data-transport-options-empty]')
+    : null;
+  var transportDefaultSummary = transportSummary
+    ? transportSummary.textContent.trim().replace(/\s+/g, ' ')
+    : '';
+
+  function transportStopIds(card) {
+    var raw = card.getAttribute('data-stop-ids') || '';
+    return raw.split(',').map(function (value) {
+      return value.trim();
+    }).filter(Boolean);
+  }
+
+  function locationName(id) {
+    var location = findByLocationId(id);
+    return location ? location.location_name : 'the selected location';
+  }
+
+  function filterTransportOptions(originId, destinationId) {
+    if (!transportCards.length) {
+      return;
+    }
+    var origin = String(originId || '');
+    var destination = String(destinationId || '');
+    var matches = [];
+
+    transportCards.forEach(function (card) {
+      var stopIds = transportStopIds(card);
+      var servesOrigin = !origin || stopIds.indexOf(origin) !== -1;
+      var servesDestination =
+        !destination || stopIds.indexOf(destination) !== -1;
+      matches.push({ card: card, origin: servesOrigin, dest: servesDestination });
+    });
+
+    var mode = 'all';
+    var visible = matches;
+    if (origin && destination) {
+      var direct = matches.filter(function (item) {
+        return item.origin && item.dest;
+      });
+      if (direct.length) {
+        mode = 'both';
+        visible = direct;
+      } else {
+        mode = 'either';
+        visible = matches.filter(function (item) {
+          return item.origin || item.dest;
+        });
+      }
+    } else if (origin) {
+      mode = 'origin';
+      visible = matches.filter(function (item) { return item.origin; });
+    } else if (destination) {
+      mode = 'destination';
+      visible = matches.filter(function (item) { return item.dest; });
+    }
+
+    var shownCards = visible.map(function (item) { return item.card; });
+    matches.forEach(function (item) {
+      item.card.classList.toggle('d-none', shownCards.indexOf(item.card) === -1);
+    });
+
+    if (transportSummary) {
+      var text;
+      if (mode === 'both') {
+        text = visible.length + ' route' + (visible.length === 1 ? '' : 's') +
+          ' directly serve ' + locationName(origin) + ' and ' +
+          locationName(destination) + '.';
+      } else if (mode === 'either') {
+        text = 'No single recorded route serves both locations. Showing ' +
+          visible.length + ' route' + (visible.length === 1 ? '' : 's') +
+          ' that serve ' + locationName(origin) + ' or ' +
+          locationName(destination) + '; Find My Route will combine the ' +
+          'recorded transfer points.';
+      } else if (mode === 'origin') {
+        text = visible.length + ' route' + (visible.length === 1 ? '' : 's') +
+          ' serve ' + locationName(origin) + '.';
+      } else if (mode === 'destination') {
+        text = visible.length + ' route' + (visible.length === 1 ? '' : 's') +
+          ' serve ' + locationName(destination) + '.';
+      } else {
+        text = transportDefaultSummary;
+      }
+      transportSummary.textContent = text;
+    }
+
+    if (transportEmpty) {
+      transportEmpty.hidden = visible.length !== 0;
+    }
+  }
+
+  document.addEventListener('sg:selection', function (event) {
+    filterTransportOptions(
+      event.detail && event.detail.origin,
+      event.detail && event.detail.destination
+    );
+  });
+
   function updateSummaries(originId) {
     if (!summaryUrl || !originId) {
       summaries.originId = null;

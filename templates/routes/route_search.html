@@ -31,11 +31,12 @@
   </div>
   {% endif %}
 
-  <div class="card mb-3">
+  <div class="card mb-3" id="sg-transport-options">
     <div class="card-header">
       <div>
         <h3 class="card-title mb-0">Available Transportation Options</h3>
-        <div class="card-subtitle text-muted">
+        <div class="card-subtitle text-muted" id="sg-transport-options-summary"
+             data-transport-options-summary>
           {{ transport_options|length }} active route{{ transport_options|length|pluralize }}
           recorded in the SakayGuide database &mdash; jeepney, bus, van and
           tricycle services with their fare, distance and travel time.
@@ -43,9 +44,11 @@
       </div>
     </div>
     <div class="card-body">
-      <div class="row g-2">
+      <div class="row g-2" data-transport-options-list>
         {% for option in transport_options %}
-        <div class="col-12 col-md-6 col-xl-4">
+        <div class="col-12 col-md-6 col-xl-4" data-transport-option
+             data-stop-ids="{% for stop_id in option.stop_location_ids %}{{ stop_id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+             data-option-label="{{ option.transport_name }} {{ option.route_code }}">
           <div class="sg-transport-option">
             <div class="sg-transport-option-top">
               <span class="sg-gm-mode sg-mode-{{ option.transport_key }}">{{ option.transport_name }}</span>
@@ -72,6 +75,13 @@
           <span class="text-muted">No active transportation routes are recorded yet.</span>
         </div>
         {% endfor %}
+        <div class="col-12" data-transport-options-empty hidden>
+          <span class="text-muted">
+            No recorded route serves both selected locations. Pick a different
+            starting point or destination, or select only one of them to see
+            every route that serves it.
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -149,9 +159,9 @@
             <strong>Ordered stops</strong>
           </div>
           <p class="text-muted mb-0 small">
-            Results follow the actual <code>route_stops</code> order, so a route
-            only appears when it really passes your origin before your
-            destination.
+            Results follow the actual <code>route_stops</code> order in both
+            directions, so a route appears whenever it really passes your
+            origin and destination &mdash; including the return trip.
           </p>
         </div>
       </div>
@@ -164,9 +174,9 @@
             <strong>Valid transfers only</strong>
           </div>
           <p class="text-muted mb-0 small">
-            Multi-ride journeys are built from recorded
-            <code>route_transfers</code> rows, including extra transfer fare
-            and waiting time when applicable.
+            Multi-ride journeys are built from recorded transfer points on
+            shared stops, including extra transfer fare and waiting time when
+            a <code>route_transfers</code> row exists for that route pair.
           </p>
         </div>
       </div>
@@ -202,5 +212,5 @@
 
 {% block extra_js %}
 {% include "routes/_map_assets.html" with map_page="search" %}
-<script src="{% static 'js/route-search.js' %}?v=7"></script>
+<script src="{% static 'js/route-search.js' %}?v=8"></script>
 {% endblock %}

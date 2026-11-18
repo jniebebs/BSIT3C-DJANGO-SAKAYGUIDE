@@ -114,6 +114,37 @@ def _sync_user_mirror(user, role=None):
         return None
 
 
+def _ensure_route_endpoints(route):
+    """Give a new route its minimum boarding and drop-off stops.
+
+    A route is only usable by the commuter search when it has ordered stops.
+    Administrators often create the route first and add intermediate stops
+    afterwards, so the origin and destination are recorded automatically.
+    Existing routes with real stops are never touched.
+    """
+    if route.origin_id == route.destination_id:
+        return 0
+    if route.stops.exists():
+        return 0
+    RouteStop.objects.bulk_create([
+        RouteStop(
+            route=route,
+            location=route.origin,
+            stop_order=1,
+            is_transfer_point=True,
+            estimated_stop_time=0,
+        ),
+        RouteStop(
+            route=route,
+            location=route.destination,
+            stop_order=2,
+            is_transfer_point=True,
+            estimated_stop_time=route.estimated_travel_time,
+        ),
+    ])
+    return 2
+
+
 def _friendly_database_error(exc):
     text = str(exc)
     if 'Invalid transfer' in text:
@@ -697,6 +728,7 @@ def route_create(request):
     form = RouteForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         route = form.save()
+        endpoint_count = _ensure_route_endpoints(route)
         _log_admin_action(
             request, 'CREATE', 'routes', route.pk,
             f'Created route "{route.route_code}" ({route.route_name}) '
@@ -704,8 +736,13 @@ def route_create(request):
         )
         messages.success(
             request,
-            f'Route "{route.route_code}" was created. You can now add stops, '
-            'fares and transfer connections.',
+            f'Route "{route.route_code}" was created. '
+            + (
+                'Its boarding and drop-off stops were added automatically, '
+                'so commuters can already find it in Find My Route. '
+                if endpoint_count else ''
+            )
+            + 'You can now add more stops, fares and transfer connections.',
         )
         return redirect('management_route_detail', pk=route.pk)
 
@@ -721,11 +758,19 @@ def route_edit(request, pk):
     form = RouteForm(request.POST or None, instance=route)
     if request.method == 'POST' and form.is_valid():
         route = form.save()
+        endpoint_count = _ensure_route_endpoints(route)
         _log_admin_action(
             request, 'UPDATE', 'routes', route.pk,
             f'Updated route "{route.route_code}" ({route.route_name}).',
         )
-        messages.success(request, f'Route "{route.route_code}" was updated.')
+        messages.success(
+            request,
+            f'Route "{route.route_code}" was updated.'
+            + (
+                ' Its boarding and drop-off stops were added automatically.'
+                if endpoint_count else ''
+            ),
+        )
         return redirect('management_route_detail', pk=route.pk)
 
     return render(request, 'management/route_form.html', {
