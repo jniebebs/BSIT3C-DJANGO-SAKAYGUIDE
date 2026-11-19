@@ -6,24 +6,21 @@
    - green pin  = starting point          (payload.origin)
    - red pin    = destination             (payload.destination)
    - blue pins  = intermediate stops      (payload.legs[n].stops)
-   - orange pins= transfer locations      (payload.transfer_points)
+   - orange pin = transfer locations     (payload.transfer_points)
    - small violet dots = landmarks        (payload.landmarks)
-   - solid coloured line per ride       = OpenStreetMap road geometry
-     fetched from the keyless OSRM demo server (router.project-osrm.org)
-   - dashed grey line (fallback) = clearly-labelled APPROXIMATE connection
-     between the recorded stops - never presented as the real road path.
+   - solid BLUE line per ride            = real road geometry
 
    P R O G R E S S I V E   R E N D E R I N G :
-   markers and a dashed stop-to-stop preview are drawn IMMEDIATELY from
-   database coordinates, so the map is never blank while the network is
-   busy. When the OSRM road geometry arrives the dashed preview is
-   upgraded to the solid road path. If the network blocks OSRM the map
-   simply keeps the labelled approximate lines.
+   markers are drawn IMMEDIATELY from database coordinates, so the map is
+   never blank while the routing service is busy. The ride path is fetched
+   from the keyless OSRM demo server (router.project-osrm.org) and drawn in
+   blue; if the path cannot be obtained no line is drawn at all - never a
+   straight line that pretends to be a road.
 
    The basemap uses free keyless tile services (Esri World Street Map,
    with OpenStreetMap's volunteer tiles as the automatic fallback). If
    both fail, an explanatory note is shown while the markers, popups and
-   route lines keep working from the database.
+   ride lines keep working from the database.
 
    If Leaflet cannot load (offline demo), the map degrades to a text note
    while the journey details stay visible.
@@ -79,7 +76,6 @@
   var tileLayer = null;
   var currentIndex = -1;
   var drewStreetGeometry = false;
-  var drewApproximate = false;
   var roadPending = false;  /* OSRM answer still on the way            */
   var tilesFailed = false;
   var tileErrors = 0;
@@ -278,26 +274,9 @@
     drewStreetGeometry = true;
   }
 
-  function addApproximateLine(stops, color) {
-    var coords = [];
-    stops.forEach(function (stop) {
-      if (stop.lat !== null && stop.lat !== undefined &&
-          stop.lng !== null && stop.lng !== undefined) {
-        coords.push([stop.lat, stop.lng]);
-      }
-    });
-    if (coords.length < 2) {
-      return;
-    }
-    L.polyline(coords, {
-      color: color,
-      weight: 4,
-      opacity: 0.85,
-      dashArray: '2 8',
-      lineCap: 'round',
-    }).addTo(lineLayer);
-    drewApproximate = true;
-  }
+  /* A leg is only ever drawn from real road geometry (OSRM, or Google
+     Directions in the Google engine). There is intentionally no
+     straight-line fallback between stops. */
 
   function addMarkers(cfg) {
     var seen = {};
@@ -336,10 +315,10 @@
           escapeHtml(transfer.to_code) + ')</div>' +
           '<div class="sg-popup-line">' +
           escapeHtml(transfer.instructions) + '</div>' +
-          (transfer.fare
+          (transfer.fare_recorded
             ? '<div class="sg-popup-line">Additional fare: PHP ' +
-              transfer.fare + '</div>'
-            : '') +
+              escapeHtml(transfer.fare) + '</div>'
+            : '<div class="sg-popup-line">No separate transfer fare recorded</div>') +
           '</div>'
         )
         .addTo(markerLayer);
@@ -410,14 +389,14 @@
   /* ------------------------------------------------------------------ */
   /* Drawing one journey: instant preview, then the road upgrade          */
   /* ------------------------------------------------------------------ */
+  /* Markers only are added here. The blue ride path is drawn by
+     upgradeToRoadPaths once the routing service answers, so the map is
+     never tempted to draw a straight line between stops. */
   function drawInstantPreview(cfg) {
     /* First pass - purely local, no network: all Kabankalan City
-       locations, then the dashed stop-to-stop preview and every
-       journey marker. The map is populated right away. */
+       locations and every journey marker. The map is populated right
+       away; the road line follows. */
     addAllLocationMarkers();
-    cfg.legs.forEach(function (leg) {
-      addApproximateLine(leg.stops, leg.color);
-    });
     addMarkers(cfg);
     roadPending = true;
     renderNotes(cfg);
@@ -435,14 +414,13 @@
       if (anyRoad) {
         lineLayer.clearLayers();
         drewStreetGeometry = false;
-        drewApproximate = false;
         results.forEach(function (item) {
           if (item.road && item.road.length > 1) {
             addRoadPathLine(item.road, item.leg.color);
-          } else {
-            addApproximateLine(item.leg.stops, item.leg.color);
           }
         });
+      } else {
+        lineLayer.clearLayers();
       }
       renderNotes(cfg);
     });
@@ -490,22 +468,20 @@
     var html = '';
     if (cfg.journey_available) {
       if (drewStreetGeometry) {
-        html += '<div><i class="ti ti-road me-1"></i>Solid coloured lines ' +
-          'follow OpenStreetMap road geometry via the free OSRM routing ' +
-          'service (no API key).</div>';
+        html += '<div><i class="ti ti-road me-1"></i>Solid <strong>blue</strong> ' +
+          'lines follow the real road geometry for the recorded stops ' +
+          '(OSRM routing service, no API key).</div>';
       }
-      if (drewApproximate && !roadPending) {
-        html += '<div><i class="ti ti-alert-circle me-1"></i>The dashed ' +
-          'line is an <strong>approximate connection</strong> between the ' +
-          'recorded database stops - the road path service was ' +
-          'unreachable, so this is not presented as a verified road ' +
-          'route.</div>';
+      if (!drewStreetGeometry && !roadPending) {
+        html += '<div><i class="ti ti-info-circle me-1"></i>The road path ' +
+          'service could not return a path for this journey, so no line is ' +
+          'drawn - a straight line between stops is never shown.</div>';
       }
       if (roadPending) {
-        html += '<div><i class="ti ti-loader-2 me-1"></i>The dashed ' +
-          'preview lines are <strong>approximate</strong> connections of ' +
-          'the recorded stops; the exact OpenStreetMap road paths are ' +
-          'being fetched in the background and will replace them.</div>';
+        html += '<div><i class="ti ti-loader-2 me-1"></i>The ride path is ' +
+          'being fetched from the routing service; the <strong>blue road ' +
+          'line</strong> will appear when it arrives. The pins shown are the ' +
+          'exact recorded stops.</div>';
       }
     } else {
       html +=
@@ -550,7 +526,6 @@
 
     currentIndex = index;
     drewStreetGeometry = false;
-    drewApproximate = false;
     roadPending = false;
 
     document.querySelectorAll('.journey-card').forEach(function (card) {

@@ -50,10 +50,22 @@ results and opens its Route Information Panel.
           {{ journey.destination.location_name }}
         </div>
         <div class="text-muted small mt-1">
-          &#8369;{{ journey.total_fare }} estimated total fare
+          {% if journey.total_fare is not None %}
+            Regular fare <strong>&#8369;{{ journey.total_fare }}</strong>
+          {% else %}
+            Regular fare not recorded
+          {% endif %}
           &middot; {{ journey.legs|length }} ride{{ journey.legs|length|pluralize }}
           {% if journey.total_distance_km %}
           &middot; {{ journey.total_distance_km }} km total
+          {% endif %}
+        </div>
+        <div class="text-muted small mt-1">
+          <i class="ti ti-ticket me-1"></i>Student/PWD fare:
+          {% if journey.student_fare is not None %}
+            <strong>&#8369;{{ journey.student_fare }}</strong>
+          {% else %}
+            <span>not recorded</span>
           {% endif %}
         </div>
         {% if journey.transfer_count %}

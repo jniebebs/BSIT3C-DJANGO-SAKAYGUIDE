@@ -29,18 +29,61 @@ drawn map path.
       {% endif %}
     </div>
     <div class="text-end">
+      {% if journey.total_fare is not None %}
       <div class="h3 mb-0">&#8369;{{ journey.total_fare }}</div>
-      <div class="text-muted small">estimated total fare</div>
+      <div class="text-muted small">regular fare</div>
+      {% if journey.student_fare is not None %}
+      <div class="h5 mb-0 mt-1">&#8369;{{ journey.student_fare }}</div>
+      <div class="text-muted small">student / PWD fare</div>
+      {% else %}
+      <div class="text-muted small mt-1">Student/PWD fare not recorded</div>
+      {% endif %}
+      {% else %}
+      {% if journey.student_fare is not None %}
+      <div class="h4 mb-0">&#8369;{{ journey.student_fare }}</div>
+      <div class="text-muted small">student / PWD fare</div>
+      <div class="text-muted small">regular fare not recorded</div>
+      {% else %}
+      <div class="h4 mb-0">Fare not recorded</div>
+      <div class="text-muted small">no active fare record for this option</div>
+      {% endif %}
+      {% endif %}
     </div>
   </div>
 
   {# ---- Fare / time summary ---- #}
   <div class="sg-panel-summary mb-3">
     <div class="sg-panel-summary-row">
+      {% if journey.total_fare is not None %}
       <div><i class="ti ti-cash me-1"></i><strong>&#8369;{{ journey.total_fare }}</strong></div>
       <div class="text-muted small">
-        rides &#8369;{{ journey.ride_fare }}{% if journey.transfer_fare %} + transfer &#8369;{{ journey.transfer_fare }}{% endif %}
+        rides {% if journey.ride_fare is not None %}&#8369;{{ journey.ride_fare }}{% else %}not recorded{% endif %}{% if journey.transfer_fare %} + transfer &#8369;{{ journey.transfer_fare }}{% endif %}
       </div>
+      {% else %}
+      <div><i class="ti ti-cash me-1"></i><strong>Fare not recorded</strong></div>
+      <div class="text-muted small">
+        No active regular fare record for
+        {{ journey.unknown_fare_routes|join:", " }}.
+        Recorded transfer extras:
+        {% if journey.transfer_fare %}&#8369;{{ journey.transfer_fare }}{% else %}none{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="sg-panel-summary-row">
+      {% if journey.student_fare is not None %}
+      <div><i class="ti ti-ticket me-1"></i><strong>&#8369;{{ journey.student_fare }}</strong></div>
+      <div class="text-muted small">
+        Student/PWD &middot; rides {% if journey.discount_ride_fare is not None %}&#8369;{{ journey.discount_ride_fare }}{% else %}not recorded{% endif %}{% if journey.transfer_fare %} + transfer &#8369;{{ journey.transfer_fare }}{% endif %}
+      </div>
+      {% else %}
+      <div><i class="ti ti-ticket me-1"></i><strong>Student/PWD not recorded</strong></div>
+      <div class="text-muted small">
+        No active discounted fare record for
+        {{ journey.unknown_discount_routes|join:", " }}.
+        Recorded transfer extras:
+        {% if journey.transfer_fare %}&#8369;{{ journey.transfer_fare }}{% else %}none{% endif %}
+      </div>
+      {% endif %}
     </div>
     <div class="sg-panel-summary-row">
       <div>
@@ -81,7 +124,9 @@ drawn map path.
         <div class="d-flex align-items-center gap-2 mt-1">
           <span class="badge text-bg-secondary">{{ leg.route.transport_type.transport_name }}</span>
           <span class="text-muted small">
-            {{ leg.minutes }} min &middot; &#8369;{{ leg.fare }}
+            {{ leg.minutes }} min
+            {% if leg.fare is not None %}&middot; &#8369;{{ leg.fare }}{% else %}&middot; fare not recorded{% endif %}
+            {% if leg.fare_discount is not None %}&middot; Student/PWD &#8369;{{ leg.fare_discount }}{% endif %}
             {% if leg.distance_km %}&middot; {{ leg.distance_km }} km{% endif %}
           </span>
         </div>

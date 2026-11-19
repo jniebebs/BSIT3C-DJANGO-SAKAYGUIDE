@@ -354,7 +354,7 @@ def commuter_login_view(request):
         'commuter',
         'auth/commuter_login.html',
         banner=(
-            'Commuter accounts find jeepney and tricycle routes, check '
+            'Commuter accounts find jeepney, bus and tricycle routes, check '
             'estimated fares and travel times, and use live GPS directions.'
         ),
     )

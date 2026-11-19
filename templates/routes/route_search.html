@@ -68,6 +68,16 @@
               {{ option.stops_count }} recorded stop{{ option.stops_count|pluralize }}
               {% if option.fare is None %}&middot; fare not recorded{% endif %}
             </div>
+            <div class="sg-transport-option-student text-muted small mt-1">
+              <span class="sg-transport-fare-row">
+                Regular:
+                <strong>{% if option.fare is not None %}&#8369;{{ option.fare }}{% else %}not recorded{% endif %}</strong>
+              </span>
+              <span class="sg-transport-fare-row ms-2">
+                Student/PWD:
+                <strong>{% if option.student_fare is not None %}&#8369;{{ option.student_fare }}{% else %}not recorded{% endif %}</strong>
+              </span>
+            </div>
           </div>
         </div>
         {% empty %}
@@ -141,10 +151,10 @@
       <div class="sg-map" id="sg-search-map"></div>
       <div class="text-muted small mt-2" id="sg-map-attribution">
         <i class="ti ti-map-pin me-1"></i>All {{ map_locations|length }}
-        recorded locations in Kabankalan City are pinned - click a pin for
-        its name, type, barangay and the routes recorded there. Purple pins
-        are barangays, blue pins are places, and grey pins are inactive
-        places.
+        active, recorded locations in Kabankalan City are pinned - click a
+        pin for its name, type, barangay and the routes recorded there.
+        Purple pins are barangays and blue pins are other places. Only
+        active locations and routes are shown.
       </div>
       <div class="sg-map-engine-note" id="sg-map-engine-note" hidden></div>
     </div>
@@ -190,7 +200,8 @@
           </div>
           <p class="text-muted mb-0 small">
             Fares come from the active <code>route_fares</code> records for the
-            regular fare type and are summed per ride.
+            regular fare type and are summed per ride. Options with no active
+            fare record show “fare not recorded” rather than a guessed amount.
           </p>
         </div>
       </div>
@@ -212,5 +223,5 @@
 
 {% block extra_js %}
 {% include "routes/_map_assets.html" with map_page="search" %}
-<script src="{% static 'js/route-search.js' %}?v=8"></script>
+<script src="{% static 'js/route-search.js' %}?v=9"></script>
 {% endblock %}

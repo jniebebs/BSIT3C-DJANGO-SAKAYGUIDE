@@ -2,7 +2,7 @@
 {% load management_tags %}
 
 {% block page_title %}Routes{% endblock %}
-{% block page_subtitle %}Jeepney and tricycle routes with boarding points, fares and transfers.{% endblock %}
+{% block page_subtitle %}Jeepney, bus and tricycle routes with boarding points, fares and transfers.{% endblock %}
 
 {% block page_actions %}
 <a href="{% url 'management_map' %}" class="btn btn-outline-primary">
@@ -16,33 +16,39 @@
 {% block admin_content %}
 
 <div class="row g-3 mb-3">
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm-4 col-lg">
     <div class="mgmt-mini-stat">
       <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-route"></i></span>
       <div><span>Total routes</span><strong>{{ total_count }}</strong></div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm-4 col-lg">
     <div class="mgmt-mini-stat">
       <span class="mgmt-mini-icon is-green"><i class="fa-solid fa-circle-check"></i></span>
       <div><span>Active routes</span><strong>{{ active_count }}</strong></div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm-4 col-lg">
     <div class="mgmt-mini-stat">
       <span class="mgmt-mini-icon is-amber"><i class="fa-solid fa-bus"></i></span>
       <div><span>Jeepney routes</span><strong>{{ jeepney_count }}</strong></div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm-4 col-lg">
     <div class="mgmt-mini-stat">
       <span class="mgmt-mini-icon is-purple"><i class="fa-solid fa-motorcycle"></i></span>
       <div><span>Tricycle routes</span><strong>{{ tricycle_count }}</strong></div>
     </div>
   </div>
+  <div class="col-6 col-sm-4 col-lg">
+    <div class="mgmt-mini-stat">
+      <span class="mgmt-mini-icon is-blue"><i class="fa-solid fa-bus-simple"></i></span>
+      <div><span>Bus routes</span><strong>{{ bus_count }}</strong></div>
+    </div>
+  </div>
 </div>
 
-{# Jeepney and Tricycle are the two supported local modes. #}
+{# Jeepney, Bus and Tricycle are the three supported local modes. #}
 <div class="mgmt-segment mb-3">
   <a href="{% url 'management_routes' %}"
      class="{% if not mode %}active{% endif %}">
@@ -55,6 +61,10 @@
   <a href="{% url 'management_routes' %}?mode=Tricycle"
      class="{% if mode == 'Tricycle' %}active{% endif %}">
     <i class="fa-solid fa-motorcycle me-1"></i>Tricycle
+  </a>
+  <a href="{% url 'management_routes' %}?mode=Bus"
+     class="{% if mode == 'Bus' %}active{% endif %}">
+    <i class="fa-solid fa-bus-simple me-1"></i>Bus
   </a>
 </div>
 
@@ -179,3 +189,4 @@
   {% endif %}
 </section>
 {% endblock %}
+

@@ -25,6 +25,13 @@
     return Number(value).toFixed(2);
   }
 
+  function fareText(summary, prefix) {
+    if (summary.fare === null || summary.fare === undefined) {
+      return 'fare not recorded';
+    }
+    return (prefix || '') + '\u20b1' + formatFare(summary.fare);
+  }
+
   function findByLocationId(id) {
     var wanted = String(id);
     for (var i = 0; i < LOCATIONS.length; i += 1) {
@@ -61,6 +68,15 @@
     }
     var isDestination = hiddenInput.name === 'destination';
 
+    /* The same place can never be both endpoints; hide it from this list
+       instead of letting the commuter select it twice. */
+    function otherEndpointId() {
+      var selector = isDestination ? 'input[name="origin"]'
+                                   : 'input[name="destination"]';
+      var other = form.querySelector(selector);
+      return other ? String(other.value || '') : '';
+    }
+
     function closeMenu() {
       menu.hidden = true;
       textInput.setAttribute('aria-expanded', 'false');
@@ -96,21 +112,35 @@
         return 'No recorded route from this starting point';
       }
       return (
-        'from \u20b1' + formatFare(summary.fare) +
+        fareText(summary, 'from ') +
         ' \u00b7 ~' + summary.minutes + ' min'
       );
     }
 
     function selectLocation(location) {
+      if (otherEndpointId() === String(location.location_id)) {
+        hiddenInput.value = '';
+        closeMenu();
+        return;
+      }
       hiddenInput.value = String(location.location_id);
       textInput.value = location.location_name;
+      if (textInput.setCustomValidity) {
+        textInput.setCustomValidity('');
+      }
       closeMenu();
       notifySelection();
     }
 
     function renderList(query) {
       var q = query.trim().toLowerCase();
+      var otherId = otherEndpointId();
       var matches = LOCATIONS.filter(function (loc) {
+        /* The other endpoint is never offered in this combobox, so the
+           pair can't collapse to the same place. */
+        if (otherId && String(loc.location_id) === otherId) {
+          return false;
+        }
         if (!q) {
           return true;
         }
@@ -165,6 +195,9 @@
     textInput.addEventListener('input', function () {
       if (hiddenInput.value) {
         hiddenInput.value = ''; // edited text = no confirmed selection yet
+      }
+      if (textInput.setCustomValidity) {
+        textInput.setCustomValidity('');
       }
       renderList(textInput.value);
     });
@@ -242,7 +275,7 @@
     if (summary.has_route) {
       previewText.textContent =
         origin.location_name + ' \u2192 ' + destination.location_name +
-        ': from \u20b1' + formatFare(summary.fare) +
+        ': ' + fareText(summary, 'from ') +
         ' \u00b7 about ' + summary.minutes + ' min';
     } else {
       previewText.textContent =
@@ -486,7 +519,26 @@
      browser restores the old page from the back-forward cache. */
   var loading = document.getElementById('sg-search-loading');
   var submitButton = form.querySelector('button[type="submit"]');
-  form.addEventListener('submit', function () {
+  form.addEventListener('submit', function (event) {
+    var originInput = form.querySelector('input[name="origin"]');
+    var destinationInput = form.querySelector('input[name="destination"]');
+    var destinationText = document.getElementById('destination-text');
+    if (originInput && destinationInput &&
+        originInput.value &&
+        originInput.value === destinationInput.value) {
+      /* Same place in both boxes is not a valid trip. */
+      event.preventDefault();
+      if (destinationText && destinationText.setCustomValidity) {
+        destinationText.setCustomValidity(
+          'Origin and destination must be different locations.'
+        );
+        destinationText.reportValidity();
+      }
+      return;
+    }
+    if (destinationText && destinationText.setCustomValidity) {
+      destinationText.setCustomValidity('');
+    }
     if (loading) {
       loading.hidden = false;
     }

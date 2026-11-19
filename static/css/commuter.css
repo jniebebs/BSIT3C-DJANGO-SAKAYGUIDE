@@ -147,9 +147,38 @@
   box-shadow: 0 6px 14px -6px rgba(124, 58, 237, 0.7);
 }
 
+.cm-option-icon.is-bus {
+  background: linear-gradient(135deg, #60a5fa, #1d4ed8);
+  box-shadow: 0 6px 14px -6px rgba(29, 78, 216, 0.7);
+}
+
 .cm-option-icon.is-other {
   background: linear-gradient(135deg, #34d399, #15803d);
   box-shadow: 0 6px 14px -6px rgba(21, 128, 61, 0.7);
+}
+
+.cm-option-studentfare {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.45rem;
+}
+
+.cm-option-studentfare strong {
+  font-size: 0.78rem;
+  color: #1d4ed8;
+}
+
+.cm-option-studentfare i {
+  margin-right: 0.35rem;
+  color: #3b82f6;
 }
 
 .cm-option-mode {

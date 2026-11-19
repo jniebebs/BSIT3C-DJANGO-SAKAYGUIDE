@@ -19,8 +19,8 @@
         directions panel.
      2. If Directions is unavailable (API not enabled, quota, ZERO_RESULTS,
         offline), the free OSRM demo server is used for the road geometry.
-     3. If both fail, the dashed stop-to-stop preview stays on the map and is
-        explicitly labelled as approximate.
+     3. If both fail, no line is drawn for that ride - never a straight line
+        between stops.
 
    Live GPS:
      The browser Geolocation API is watched while the "My Current Location"
@@ -64,7 +64,6 @@
   var journeyLines = [];
   var alternativeLines = [];
   var journeyMarkers = [];
-  var previewLinesByLeg = {};
 
   var activeJourneyIndex = -1;
   var journeySequence = 0;
@@ -443,10 +442,10 @@
       escapeHtml(transfer.to_code) + ')</div>' +
       '<div class="sg-gm-line">' + escapeHtml(transfer.instructions) +
       '</div>' +
-      (transfer.fare
+      (transfer.fare_recorded
         ? '<div class="sg-gm-line">Additional fare: PHP ' +
           escapeHtml(transfer.fare) + '</div>'
-        : '') +
+        : '<div class="sg-gm-line">No separate transfer fare recorded</div>') +
       (transfer.time
         ? '<div class="sg-gm-line">Allow about ' + escapeHtml(transfer.time) +
           ' minutes to transfer</div>'
@@ -624,28 +623,12 @@
     return path;
   }
 
-  function removePreviewLines(legIndex) {
-    var lines = previewLinesByLeg[legIndex] || [];
-    lines.forEach(function (line) { line.setMap(null); });
-    previewLinesByLeg[legIndex] = [];
-  }
-
-  function drawApproximateLeg(leg, legIndex) {
-    var path = stopPath(leg.stops);
-    if (path.length < 2) {
-      return;
-    }
-    var line = makePolyline(path, leg.color, true);
-    journeyLines.push(line);
-    previewLinesByLeg[legIndex] = (previewLinesByLeg[legIndex] || []);
-    previewLinesByLeg[legIndex].push(line);
-  }
+  /* No straight-line preview exists anywhere in this engine. */
 
   function clearJourneyLayers() {
     removeFromMap(journeyLines);
     removeFromMap(alternativeLines);
     removeFromMap(journeyMarkers);
-    previewLinesByLeg = {};
     if (infoWindow) {
       infoWindow.close();
     }
@@ -689,8 +672,9 @@
       if (directionsState.pending) {
         html += noteLine(
           'ti-loader-2',
-          'Turn-by-turn directions are loading. The dashed preview follows ' +
-          'the recorded stops until the road paths arrive.'
+          'Road paths are loading. The pins are the exact recorded stops; ' +
+          'each ride path appears as a <strong>blue</strong> road line as ' +
+          'soon as it is ready.'
         );
       }
       if (directionsState.googleLegs) {
@@ -714,10 +698,9 @@
       if (directionsState.approximateLegs) {
         html += noteLine(
           'ti-alert-circle',
-          'The dashed line for ' + directionsState.approximateLegs + ' ride' +
+          'No road path could be drawn for ' + directionsState.approximateLegs + ' ride' +
           (directionsState.approximateLegs === 1 ? '' : 's') +
-          ' is only an <strong>approximate</strong> stop-to-stop connection; ' +
-          'no road path service could be reached.'
+          ' - no line is shown rather than a straight line between stops.'
         );
       }
     } else {
@@ -916,8 +899,8 @@
         html += '</div>'; /* leg head */
         html += '<div class="sg-gdir-error">' +
           escapeHtml(result.reason) +
-          ' The map keeps the dashed approximate stop-to-stop line for this ' +
-          'ride; it is not presented as a verified road route.</div>';
+          ' No line is drawn for this ride; a straight line between stops is ' +
+          'never shown as a road route.</div>';
       }
       html += '</div>'; /* .sg-gdir-leg */
     });
@@ -927,7 +910,8 @@
         'ti-alert-triangle me-1"></i>Google Directions could not be used ' +
         'for this journey. Enable the <strong>Directions API</strong> for ' +
         'the browser key and check its API restrictions. The map falls back ' +
-        'to free road paths or the labelled approximate dashed line.</div>';
+        'to free OSRM road paths; if they fail too, no line is drawn for ' +
+        'that ride.</div>';
     }
 
     container.innerHTML = html;
@@ -996,7 +980,6 @@
     if (!path || path.length < 2) {
       return;
     }
-    removePreviewLines(legIndex);
     addSolidRoad(path, leg.color, journeyLines);
   }
 
@@ -1044,7 +1027,6 @@
         return;
       }
       if (path && path.length > 1) {
-        removePreviewLines(legIndex);
         addSolidRoad(path, leg.color, journeyLines);
         directionsState.osrmLegs += 1;
         callback({
@@ -1269,9 +1251,8 @@
       return;
     }
 
-    cfg.legs.forEach(function (leg, legIndex) {
-      drawApproximateLeg(leg, legIndex);
-    });
+    /* Markers are drawn now; each blue ride path appears when the road
+       geometry arrives (never as a straight line). */
     drawJourneyMarkers(cfg);
     focusJourney(cfg);
     renderMapNotes(cfg);

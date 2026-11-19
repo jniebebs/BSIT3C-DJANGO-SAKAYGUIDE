@@ -1,4 +1,4 @@
-# SakayGuide Database Design
+﻿# SakayGuide Database Design
 
 **Project:** SakayGuide: A Web-Based Public Transportation Route and Fare Information System for Local Commuters  
 **Database:** `sakayguide_db`  
@@ -50,20 +50,20 @@ The main script is deliberately ordered so it can be imported from top to bottom
 ### 3.1 Relationship map
 
 ```text
-municipalities (1) ────< barangays (M) ────< locations (M)
+municipalities (1) â”€â”€â”€â”€< barangays (M) â”€â”€â”€â”€< locations (M)
 
-locations (1) ────< routes (M)              [origin_id]
-locations (1) ────< routes (M)              [destination_id]
-transportation_types (1) ────< routes (M)
+locations (1) â”€â”€â”€â”€< routes (M)              [origin_id]
+locations (1) â”€â”€â”€â”€< routes (M)              [destination_id]
+transportation_types (1) â”€â”€â”€â”€< routes (M)
 
-routes (1) ────< route_stops (M) >──── (1) locations
-routes (1) ────< route_fares (M) >──── (1) fare_types
-routes (1) ────< route_transfers (M) >──── (1) locations   [from_route / to_route / transfer_location]
-routes (1) ────< route_landmarks (M) >──── (1) locations
+routes (1) â”€â”€â”€â”€< route_stops (M) >â”€â”€â”€â”€ (1) locations
+routes (1) â”€â”€â”€â”€< route_fares (M) >â”€â”€â”€â”€ (1) fare_types
+routes (1) â”€â”€â”€â”€< route_transfers (M) >â”€â”€â”€â”€ (1) locations   [from_route / to_route / transfer_location]
+routes (1) â”€â”€â”€â”€< route_landmarks (M) >â”€â”€â”€â”€ (1) locations
 
-users (1) ────< saved_routes (M) >──── (1) locations         [origin / destination]
-users (1) ────< search_history (M, user_id nullable) >──── (1) locations
-users (1) ────< admin_activity_logs (M)                      [admin_id]
+users (1) â”€â”€â”€â”€< saved_routes (M) >â”€â”€â”€â”€ (1) locations         [origin / destination]
+users (1) â”€â”€â”€â”€< search_history (M, user_id nullable) >â”€â”€â”€â”€ (1) locations
+users (1) â”€â”€â”€â”€< admin_activity_logs (M)                      [admin_id]
 ```
 
 ### 3.2 ASCII ERD
@@ -215,7 +215,7 @@ Stores the city or municipality covered by the system. Only active records are s
 Stores barangays under a municipality.
 
 - **Primary key:** `barangay_id`
-- **Foreign key:** `municipality_id` → `municipalities`.
+- **Foreign key:** `municipality_id` â†’ `municipalities`.
 - **Unique:** `(municipality_id, barangay_name)`.
 - Supports administrator management of the geographic hierarchy.
 
@@ -223,7 +223,7 @@ Stores barangays under a municipality.
 Stores terminals, landmarks, establishments, hospitals, schools, markets, government offices, and other important places.
 
 - **Primary key:** `location_id`
-- **Foreign key:** `barangay_id` → `barangays`.
+- **Foreign key:** `barangay_id` â†’ `barangays`.
 - **Unique:** `(barangay_id, location_name, location_type)`.
 - **Indexes:** name, type/status, and barangay.
 - **Map coordinates (added by `sakayguide_locations_coordinates.sql`, October 2026):** `latitude DECIMAL(10,7) NULL` and `longitude DECIMAL(10,7) NULL` hold the verified WGS 84 position of the place from OpenStreetMap. `NULL` means "position not yet verified": the app then shows the place in the journey instructions and labels it as unverified on the map instead of placing a guess marker.
@@ -243,7 +243,7 @@ Stores each public transport route.
 
 - **Primary key:** `route_id`
 - **Unique:** `route_code`.
-- **Foreign keys:** `origin_id` and `destination_id` → `locations`; `transport_type_id` → `transportation_types`.
+- **Foreign keys:** `origin_id` and `destination_id` â†’ `locations`; `transport_type_id` â†’ `transportation_types`.
 - **Checks:** origin and destination must differ; estimated travel time must be greater than zero.
 - **Indexes:** `(origin_id, destination_id)`, destination, transport type, status, and route name.
 - `estimated_travel_time` is stored in **minutes**.
@@ -253,7 +253,7 @@ Stores each public transport route.
 Stores the ordered stops along a route.
 
 - **Primary key:** `stop_id`
-- **Foreign keys:** `route_id` → `routes`; `location_id` → `locations`.
+- **Foreign keys:** `route_id` â†’ `routes`; `location_id` â†’ `locations`.
 - **Unique:** `(route_id, stop_order)` ensures a clear sequence; `(route_id, location_id)` prevents the same location appearing twice on one route.
 - **Index:** `(location_id, route_id)` is important for origin/destination searches.
 - `is_transfer_point` marks stops where transfers are possible.
@@ -272,7 +272,7 @@ Defines fare categories.
 Stores fare amounts for each route and fare category, including fare history.
 
 - **Primary key:** `fare_id`
-- **Foreign keys:** `route_id` → `routes`; `fare_type_id` → `fare_types`.
+- **Foreign keys:** `route_id` â†’ `routes`; `fare_type_id` â†’ `fare_types`.
 - **Unique:** `(route_id, fare_type_id, effective_date)` prevents two fares for the same route/category starting on the same date.
 - **Indexes:** `(route_id, fare_type_id, status, effective_date)` for current-fare lookups; effective/expiry date; status.
 - **Checks:** all money values are non-negative; `expiry_date` cannot be before `effective_date`.
@@ -287,7 +287,7 @@ Stores fare amounts for each route and fare category, including fare history.
 Stores valid connections from one route to another at a shared location.
 
 - **Primary key:** `transfer_id`
-- **Foreign keys:** `from_route_id` and `to_route_id` → `routes`; `transfer_location_id` → `locations`.
+- **Foreign keys:** `from_route_id` and `to_route_id` â†’ `routes`; `transfer_location_id` â†’ `locations`.
 - **Unique:** `(from_route_id, to_route_id, transfer_location_id)`.
 - **Checks:** the two routes must be different; additional fare cannot be negative.
 - `transfer_instructions` is the passenger-facing explanation.
@@ -299,7 +299,7 @@ Stores valid connections from one route to another at a shared location.
 Stores an origin-destination pair saved by a commuter, with an optional nickname.
 
 - **Primary key:** `saved_route_id`
-- **Foreign keys:** `user_id` → `users`; `origin_id` and `destination_id` → `locations`.
+- **Foreign keys:** `user_id` â†’ `users`; `origin_id` and `destination_id` â†’ `locations`.
 - **Unique:** `(user_id, origin_id, destination_id)` prevents duplicate saved pairs for the same commuter.
 - **Check:** origin and destination must differ.
 - **Indexes:** user/date and origin/destination.
@@ -309,7 +309,7 @@ Stores an origin-destination pair saved by a commuter, with an optional nickname
 Stores commuter and guest searches.
 
 - **Primary key:** `search_id`
-- **Foreign keys:** `user_id` → `users` (**nullable** for guests); `origin_id` and `destination_id` → `locations`.
+- **Foreign keys:** `user_id` â†’ `users` (**nullable** for guests); `origin_id` and `destination_id` â†’ `locations`.
 - **Check:** origin and destination must differ.
 - **Indexes:** `(user_id, search_date)`, `(origin_id, destination_id)`, and `search_date`.
 - Guest searches insert `NULL` into `user_id`. When a user account is deleted, history remains with `user_id = NULL` because of `ON DELETE SET NULL`.
@@ -318,7 +318,7 @@ Stores commuter and guest searches.
 Connects a route to important landmarks and describes their position along the route.
 
 - **Primary key:** `route_landmark_id`
-- **Foreign keys:** `route_id` → `routes`; `location_id` → `locations`.
+- **Foreign keys:** `route_id` â†’ `routes`; `location_id` â†’ `locations`.
 - **Unique:** `(route_id, location_id)` and `(route_id, display_order)`.
 - **Check:** distance and display order are non-negative/positive.
 - `distance_from_origin` is approximate kilometres from the route origin.
@@ -328,7 +328,7 @@ Connects a route to important landmarks and describes their position along the r
 Records administrator actions for auditability.
 
 - **Primary key:** `log_id`
-- **Foreign key:** `admin_id` → `users`.
+- **Foreign key:** `admin_id` â†’ `users`.
 - **Indexes:** `(admin_id, created_at)`, `(table_affected, record_id)`, and `action_type`.
 - `record_id` is the affected row's primary key when applicable. It is intentionally **not** a foreign key because it can point to different tables.
 - `action_type` is a `VARCHAR(50)` rather than an ENUM so new administrative actions can be recorded without altering the table.
@@ -368,7 +368,7 @@ One coverage area is populated: **Butuan City, Agusan del Norte**.
 
 The passwords in the SQL file are bcrypt hashes produced by `password_hash()`. Do not copy these hashes into a production account; create new hashes for real users.
 
-**Sample transfer result:** Bancasi Airport → Butuan City Hall using route `JEEP-BC-02`, transfer at Butuan Central Terminal, then route `JEEP-LD-01` = **estimated PHP 33.00** and **about 60 minutes** for a Regular passenger in the test data. This is an illustrative calculation, not an official fare.
+**Sample transfer result:** Bancasi Airport â†’ Butuan City Hall using route `JEEP-BC-02`, transfer at Butuan Central Terminal, then route `JEEP-LD-01` = **estimated PHP 33.00** and **about 60 minutes** for a Regular passenger in the test data. This is an illustrative calculation, not an official fare.
 
 ---
 
@@ -781,8 +781,8 @@ Use this checklist before submitting or demonstrating the project:
 - [ ] Confirm exactly 14 tables with the verification query.
 - [ ] Confirm the two transfer triggers exist.
 - [ ] Confirm sample users can log in with the documented passwords.
-- [ ] Search Central Terminal → City Hall and get `JEEP-LD-01`.
-- [ ] Search Airport → City Hall and get a transfer via Central Terminal.
+- [ ] Search Central Terminal â†’ City Hall and get `JEEP-LD-01`.
+- [ ] Search Airport â†’ City Hall and get a transfer via Central Terminal.
 - [ ] Confirm the multi-ride query returns PHP 33.00 / 60 minutes for the sample Regular fare.
 - [ ] Confirm route 1 has one active Regular fare and one retained expired Regular fare.
 - [ ] Try inserting an invalid transfer where the location is not on both routes; confirm it is rejected.
@@ -816,7 +816,7 @@ The sample route names, locations, fares, and distances are test data. They must
 
 ## 12. Location map coordinates (October 2026 migration)
 
-The interactive route-map feature (Django part, `routes` app + Leaflet) needs a geographic position for every terminal, stop and landmark. The 14-table schema must otherwise stay untouched, so the coordinates are carried by **two new NULLable columns on the existing `locations` table** — no extra table:
+The interactive route-map feature (Django part, `routes` app + Leaflet) needs a geographic position for every terminal, stop and landmark. The 14-table schema must otherwise stay untouched, so the coordinates are carried by **two new NULLable columns on the existing `locations` table** â€” no extra table:
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -829,7 +829,7 @@ The interactive route-map feature (Django part, `routes` app + Leaflet) needs a 
 
 1. `ALTER TABLE locations ADD COLUMN IF NOT EXISTS latitude/longitude` (MariaDB syntax; on MySQL 8 delete the words `IF NOT EXISTS`).
 2. Fills the coordinates of the 18 Kabankalan City location rows with values matched from **OpenStreetMap** (state of the OSM database, October 2026). Each `UPDATE` has a comment naming the matching OSM object (for example *OSM "Ceres Bus Terminal", Justice Y. Perez Avenue, Barangay 2*) so every value can be re-checked at <https://www.openstreetmap.org>.
-3. Locations **without a verified OSM match stay `NULL`** — the app then shows such a place in the journey instructions and on the map notes as "map position not yet verified" instead of inventing a marker.
+3. Locations **without a verified OSM match stay `NULL`** â€” the app then shows such a place in the journey instructions and on the map notes as "map position not yet verified" instead of inventing a marker.
 4. Runs verification queries (`with_coordinates` / `still_missing` counters).
 
 The migration is transactional, contains no `DROP`/`DELETE`, and is safe to repeat (`UPDATE`s simply rewrite the same verified values).
@@ -850,5 +850,72 @@ Fresh installs already get the columns because `sakayguide_db.sql` creates `loca
 ### 12.3 How the map uses the coordinates
 
 - The **starting point** (green marker), **destination** (red marker), **intermediate stops** (blue), **transfer points** (orange, from `route_transfers`) and **landmarks** (small violet dots, from `route_landmarks`) are only drawn when `latitude`/`longitude` are filled.
-- **Line geometry:** the stops of every ride are sent to the free OSRM demo server (`https://router.project-osrm.org`, OpenStreetMap data, no API key), which returns the road-following path. If OSRM cannot be reached, the stops are connected with a clearly-labelled dashed *approximate* line — never presented as the actual road route, and no fake path is drawn after the fact.
+- **Line geometry:** the stops of every ride are sent to the free OSRM demo server (`https://router.project-osrm.org`, OpenStreetMap data, no API key), which returns the road-following path. If OSRM cannot be reached, the stops are connected with a clearly-labelled dashed *approximate* line â€” never presented as the actual road route, and no fake path is drawn after the fact.
 - Everything a journey needs comes from MySQL through Django ORM (see `routes/services.py`); the map engine itself is Leaflet with OpenStreetMap raster tiles. Both parts are keyless and free.
+
+---
+
+## 13. Administrator ↔ commuter dashboard integration (live shared data)
+
+The Administrator Dashboard and the Commuter Dashboard never keep separate or
+copied transit data. Both read and write the same `sakayguide_db` tables
+through the Django app `routes` (models in `routes/models.py`, unmanaged,
+mapped by `mysite/routers.py`):
+
+| Data                    | Table(s)                                              |
+|-------------------------|-------------------------------------------------------|
+| Locations (32 Kabankalan City barangays + terminals, stops, landmarks, schools, markets, hospitals) | `locations`, `barangays`, `municipalities` |
+| Routes                  | `routes`                                              |
+| Stops / intermediate stops / transfer points | `route_stops` (`is_transfer_point`)      |
+| Fares                   | `route_fares` (regular fare type = 1), `fare_types`   |
+| Transfers               | `route_transfers`                                     |
+| Transport modes         | `transportation_types` (Jeepney, Bus, Tricycle)        |
+| Search history / saved routes / audit | `search_history`, `saved_routes`, `admin_activity_logs` |
+
+Synchronization rules enforced by the code:
+
+1. **Commuter queries are live, never cached.** Every commuter page and JSON
+   endpoint (`routes.services.location_choices`, `transport_options`,
+   `map_locations`, `find_journeys`, `destination_summaries`) queries the
+   database per request, so an administrator create/update/deactivate/delete
+   is visible to commuters on the very next request — no manual re-entry,
+   no duplicated records.
+2. **Only active records reach commuters.** Locations and routes are filtered
+   with `status = 'active'` everywhere on the commuter side, including the
+   From/To comboboxes, the transport-option cards, the journey search and
+   the map pins. An archived location or route disappears from all new
+   searches immediately; historical search history and saved-route records
+   are preserved.
+3. **Deleting is safe.** The administrator delete action deactivates a
+   location/route when other tables still reference it (stops, fares,
+   transfers, landmarks, saved routes, search history) instead of deleting it,
+   so no foreign key is broken and no live record vanishes unexpectedly.
+   Unreferenced records are deleted outright.
+4. **Routes are searchable even before their stops are entered.** When a
+   route has no `route_stops` rows, its recorded origin and destination are
+   used as the endpoint stops; the administrator route form also auto-creates
+   those endpoint stops on save, and the commuter journey engine adds them in
+   memory as a fallback.
+5. **Fares and times are never invented.** A leg whose route has no active
+   Regular fare record is reported as "fare not recorded" and excluded from
+   the cheapest-fare calculation; transfer waiting time/extra fare are only
+   shown when a `route_transfers` row exists for that route pair.
+6. **The selected route is highlighted in BLUE on the map.** Ride paths are
+   drawn as solid blue lines (Ride 1 `#1c7ed6`, Ride 2 `#0b5ed7`, Ride 3
+   `#4dabf7`) from database coordinates, following real road geometry (Google
+   Directions when a key is configured, otherwise the keyless OSRM service).
+7. **Permissions are separate.** Commuters (`is_staff = False`) get 403 on
+   every `/management/` URL; administrators (`is_staff = True`) get 403 on the
+   commuter-only `/plan/` search and `/commuter/` pages. Role checks run
+   server-side in `apps/core/permissions.py` on every request.
+8. **Duplicate prevention.** Location, route, transport mode, fare type,
+   stop, fare and transfer forms validate duplicates in form clean methods,
+   and the SQL schema enforces uniqueness with
+   `uq_location_barangay_name_type`, `uq_route_stop_order`,
+   `uq_route_stop_location`, `uq_route_fare_type_date`,
+   `uq_saved_route_user_od`, plus `routes.route_code` and
+   `transportation_types.transport_name` unique keys.
+
+The account mirror (`users` table) links Django authentication to the
+SakayGuide records for search history and saved routes; it is created on
+demand and never grants a commuter any management capability.

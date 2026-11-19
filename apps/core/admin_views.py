@@ -36,6 +36,7 @@ from routes.models import (
     SearchHistory,
     TransportationType,
 )
+from routes.network_repair import ensure_route_stops
 
 from .admin_forms import (
     AdminUserCreateForm,
@@ -57,11 +58,12 @@ User = get_user_model()
 PAGE_SIZE = 15
 TRANSIT_PAGE_SIZE = 20
 
-# The two local transport modes SakayGuide manages. Jeepney covers the fixed
-# routes and Tricycle covers the short service areas around the barangays.
-# Other records that already exist in the database stay visible and editable,
-# but these two are the ones the management screens put first.
-SUPPORTED_TRANSPORT_MODES = ['Jeepney', 'Tricycle']
+# The three local transport modes SakayGuide manages: Jeepney covers the
+# fixed routes, Bus covers the longer inter-barangay and highway runs, and
+# Tricycle covers the short service areas around the barangays. Other
+# records that already exist in the database stay visible and editable, but
+# these are the ones the management screens put first.
+SUPPORTED_TRANSPORT_MODES = ['Jeepney', 'Tricycle', 'Bus']
 
 
 # ---------------------------------------------------------------------------
@@ -119,30 +121,31 @@ def _ensure_route_endpoints(route):
 
     A route is only usable by the commuter search when it has ordered stops.
     Administrators often create the route first and add intermediate stops
-    afterwards, so the origin and destination are recorded automatically.
-    Existing routes with real stops are never touched.
+    afterwards, so the origin and destination are recorded automatically -
+    including on an edit of a route whose stop list is missing one of them.
+
+    While the route still holds exactly the auto-created pair (order 1 and 2,
+    both flagged as transfer points), the destination stop is re-synced to
+    the route's recorded ``estimated_travel_time`` on every save. That keeps
+    the commuter side showing the updated travel time straight away, without
+    the administrator having to re-enter it in the stop list. As soon as the
+    administrator adds a third stop or clears the transfer flag, the pair is
+    treated as hand-managed and left untouched.
     """
-    if route.origin_id == route.destination_id:
-        return 0
-    if route.stops.exists():
-        return 0
-    RouteStop.objects.bulk_create([
-        RouteStop(
-            route=route,
-            location=route.origin,
-            stop_order=1,
-            is_transfer_point=True,
-            estimated_stop_time=0,
-        ),
-        RouteStop(
-            route=route,
-            location=route.destination,
-            stop_order=2,
-            is_transfer_point=True,
-            estimated_stop_time=route.estimated_travel_time,
-        ),
-    ])
-    return 2
+    created = ensure_route_stops(route)
+    stops = list(route.stops.order_by('stop_order'))
+    if (
+        len(stops) == 2
+        and stops[0].stop_order == 1
+        and stops[1].stop_order == 2
+        and stops[0].is_transfer_point
+        and stops[1].is_transfer_point
+        and stops[0].estimated_stop_time == 0
+        and stops[1].estimated_stop_time != route.estimated_travel_time
+    ):
+        stops[1].estimated_stop_time = route.estimated_travel_time
+        stops[1].save(update_fields=['estimated_stop_time'])
+    return len(created)
 
 
 def _friendly_database_error(exc):
@@ -715,6 +718,10 @@ def route_list(request):
         'tricycle_count': Route.objects.filter(
             status='active',
             transport_type__transport_name__iexact='Tricycle',
+        ).count(),
+        'bus_count': Route.objects.filter(
+            status='active',
+            transport_type__transport_name__iexact='Bus',
         ).count(),
         'total_count': Route.objects.count(),
         'active_count': Route.objects.filter(status='active').count(),

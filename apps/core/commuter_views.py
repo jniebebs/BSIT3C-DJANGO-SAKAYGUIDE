@@ -139,6 +139,11 @@ def dashboard(request):
         option for option in options
         if 'tricycle' in option['transport_key']
     ]
+    bus = [
+        option for option in options
+        if 'bus' in option['transport_key']
+    ]
+    featured = jeepney + tricycle + bus
 
     return render(request, 'commuter/dashboard.html', {
         'snapshot': snapshot,
@@ -146,9 +151,10 @@ def dashboard(request):
         'options': options,
         'jeepney_options': jeepney,
         'tricycle_options': tricycle,
+        'bus_options': bus,
         'other_options': [
             option for option in options
-            if option not in jeepney and option not in tricycle
+            if option not in featured
         ],
         'popular': popular,
         'recent_searches': _recent_searches(request.user),

@@ -22,6 +22,7 @@ from .services import (
     locations_map,
     map_locations,
     popular_destinations,
+    select_mode_journeys,
     sort_journeys,
     transport_options,
 )
@@ -140,14 +141,16 @@ def route_search(request):
                 origin.location_id, destination.location_id,
                 origin=origin, destination=destination,
             )
-            journeys = sort_journeys(journeys, sort)
+            journeys = select_mode_journeys(sort_journeys(journeys, sort))
             if journeys:
                 fastest_time = min(
                     journey['total_time'] for journey in journeys
                 )
-                cheapest_fare = min(
+                known_fares = [
                     journey['total_fare'] for journey in journeys
-                )
+                    if journey['total_fare'] is not None
+                ]
+                cheapest_fare = min(known_fares) if known_fares else None
                 maps = [journey['map'] for journey in journeys]
             else:
                 # No route found: still show the Kabankalan City map with
@@ -221,11 +224,11 @@ def journey_map_json(request):
         )
 
     sort = form.cleaned_data.get('sort') or 'fare'
-    journeys = sort_journeys(
+    journeys = select_mode_journeys(sort_journeys(
         find_journeys(origin.location_id, destination.location_id,
                       origin=origin, destination=destination),
         sort,
-    )
+    ))
 
     try:
         index = int(request.GET.get('index', 0))
