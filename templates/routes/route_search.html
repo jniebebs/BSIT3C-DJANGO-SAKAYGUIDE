@@ -8,7 +8,7 @@
         <div class="page-pretitle">Plan your trip</div>
         <h2 class="page-title mb-0">Where do you want to go?</h2>
         <div class="text-muted mt-1">
-          Find routes, fares, and direct rides around Kabankalan City.
+          Find routes, fares, direct rides, and recorded transfers around Kabankalan City.
         </div>
       </div>
     </div>
@@ -166,12 +166,13 @@
         <div class="card-body">
           <div class="d-flex align-items-center gap-2 mb-2">
             <span class="badge text-bg-blue"><i class="ti ti-arrow-right-circle"></i></span>
-            <strong>Direct rides only</strong>
+            <strong>Direct rides &amp; transfers</strong>
           </div>
           <p class="text-muted mb-0 small">
-            Only routes that pass both your starting point and destination
-            in a single ride are offered &mdash; one vehicle, no transfer,
-            ridden in either direction of the recorded route.
+            A route that passes both your starting point and destination is
+            offered as one ride. When the network records a transfer between
+            two routes, the combined journey is offered too &mdash; every leg
+            can be ridden in either direction of its recorded route.
           </p>
         </div>
       </div>
@@ -219,10 +220,12 @@
 {% endblock %}
 
 {% block extra_css %}
+{{ block.super }}
 <link href="{% static 'libs/leaflet/leaflet.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 {% include "routes/_map_assets.html" with map_page="search" %}
 <script src="{% static 'js/route-search.js' %}?v=9"></script>
 {% endblock %}

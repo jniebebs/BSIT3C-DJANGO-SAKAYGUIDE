@@ -12,9 +12,7 @@
         Commuter portal &middot; {% now "l, F j, Y" %}
       </div>
       <h1 class="dh-hero-title">
-        {% now "H" as hour %}
-        {% if hour < 12 %}Good morning{% elif hour < 18 %}Good afternoon{% else %}Good evening{% endif %},
-        {{ user.first_name|default:user.username }}
+        Welcome, {{ user.first_name|default:user.username }}
       </h1>
       <p class="dh-hero-sub mb-0">
         Find the fastest jeepney, bus or tricycle for your trip, check the
@@ -38,9 +36,7 @@
     </div>
 
     <div class="dh-hero-actions">
-      <a href="{% url 'routes:route_search' %}" class="btn btn-accent">
-        <i class="fa-solid fa-magnifying-glass-location"></i> Find my route
-      </a>
+      
       <a href="{% url 'commuter_profile' %}" class="btn btn-light">
         <i class="fa-regular fa-user"></i> My profile
       </a>
@@ -57,64 +53,42 @@
 {% endif %}
 
 <div class="row row-deck g-3 mb-3">
-  {# ---------- QUICK ROUTE SEARCH ---------- #}
-  <div class="col-lg-7">
-    <div class="card h-100">
-      <div class="card-header">
-        <div class="dh-panel-title">
-          <span class="dh-panel-icon"><i class="fa-solid fa-magnifying-glass-location"></i></span>
-          <div>
-            <h3 class="card-title mb-0">Quick route search</h3>
-            <div class="card-subtitle text-muted">
-              Pick a starting point and a destination in Kabankalan City
+  {# ---------- FIND MY ROUTE ---------- #}
+  <div class="col-12"> <!-- Changed from col-lg-7 to col-12 to match Welcome section width -->
+    <div class="card h-100 cm-findroute">
+      <div class="card-body d-flex flex-column justify-content-center gap-3 p-4 cm-findroute-inner">
+        <div class="d-flex align-items-center gap-3">
+          <span class="cm-findroute-icon"><i class="fa-solid fa-route"></i></span>
+          <div class="min-w-0">
+            <h3 class="card-title mb-1">Find My Route</h3>
+            <div class="card-subtitle text-white-50 mb-0">
+              Explore available transportation routes, destinations, fares,
+              and estimated travel times.
             </div>
           </div>
         </div>
-      </div>
-      <div class="card-body">
-        <form method="get" action="{% url 'routes:route_search' %}" class="cm-quick-search">
-          <div class="row g-3">
-            <div class="col-12 col-md-6">
-              <label class="form-label" for="cm-origin">From</label>
-              <select class="form-select" name="origin" id="cm-origin" required>
-                <option value="">Choose a starting point...</option>
-                {% for location in locations %}
-                <option value="{{ location.location_id }}">
-                  {{ location.location_name }} &mdash; {{ location.barangay__barangay_name }}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-12 col-md-6">
-              <label class="form-label" for="cm-destination">To</label>
-              <select class="form-select" name="destination" id="cm-destination" required>
-                <option value="">Choose a destination...</option>
-                {% for location in locations %}
-                <option value="{{ location.location_id }}">
-                  {{ location.location_name }} &mdash; {{ location.barangay__barangay_name }}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
-              <button type="submit" class="btn btn-primary px-4">
-                <i class="fa-solid fa-route me-1"></i> Find my route
-              </button>
-              <a href="{% url 'routes:route_search' %}" class="btn btn-outline-secondary">
-                <i class="fa-solid fa-crosshairs me-1"></i> Use my GPS location
-              </a>
-              <span class="text-muted small">
-                <i class="fa-solid fa-circle-info me-1"></i>
-                The map, live GPS and travel guide open on the next screen.
-              </span>
-            </div>
-          </div>
-        </form>
+        <div class="cm-findroute-features">
+          <span class="cm-findroute-chip is-jeepney">
+            <i class="fa-solid fa-bus"></i>Jeepney
+          </span>
+          <span class="cm-findroute-chip is-tricycle">
+            <i class="fa-solid fa-motorcycle"></i>Tricycle
+          </span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <a href="{% url 'routes:route_search' %}" class="btn btn-accent btn-lg px-4 cm-findroute-cta">
+            <i class="fa-solid fa-magnifying-glass-location me-2"></i>Find My Route
+          </a>
+          <span class="text-white-50 small">
+            <i class="fa-solid fa-shield-halved me-1"></i>
+            Fares &amp; travel times straight from the SakayGuide network
+          </span>
+        </div>
       </div>
     </div>
-  </div>
+</div>
 
-  {# ---------- RECENT SEARCHES ---------- #}
+  {% comment %} {# ---------- RECENT SEARCHES ---------- #}
   <div class="col-lg-5">
     <div class="card h-100">
       <div class="card-header">
@@ -158,7 +132,7 @@
         {% endif %}
       </div>
     </div>
-  </div>
+  </div> {% endcomment %}
 </div>
 
 <div class="row row-deck g-3 mb-3">
@@ -202,6 +176,51 @@
           <span class="dh-empty-icon"><i class="fa-solid fa-trophy"></i></span>
           <div class="fw-semibold">No destination data yet</div>
           <div class="small">Popular destinations appear after commuters search.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+    {# ---------- RECENT SEARCHES ---------- #}
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <div class="dh-panel-title">
+          <span class="dh-panel-icon" style="--dh-panel-color: #8b5cf6;">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </span>
+          <div>
+            <h3 class="card-title mb-0">My recent searches</h3>
+            <div class="card-subtitle text-muted">Your last route lookups</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if recent_searches %}
+        <div class="dh-timeline">
+          {% for search in recent_searches %}
+          <div class="dh-timeline-item">
+            <span class="dh-timeline-dot"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <div class="flex-grow-1 min-w-0">
+              <div class="dh-timeline-title">
+                <span class="text-truncate">{{ search.origin }}</span>
+                <i class="fa-solid fa-arrow-right dh-route-arrow"></i>
+                <span class="text-truncate">{{ search.destination }}</span>
+              </div>
+              <div class="dh-timeline-meta">
+                {{ search.searched_at|timesince }} ago
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dh-empty">
+          <span class="dh-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <div class="fw-semibold">No searches yet</div>
+          <div class="small">
+            Search for a route and it will show up here.
+          </div>
         </div>
         {% endif %}
       </div>

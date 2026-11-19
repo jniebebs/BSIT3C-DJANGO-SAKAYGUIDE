@@ -8,7 +8,7 @@
         <div class="page-pretitle">Plan your trip</div>
         <h2 class="page-title mb-0">Where do you want to go?</h2>
         <div class="text-muted mt-1">
-          Find routes, fares, and direct rides around Kabankalan City.
+          Find routes, fares, direct rides, and recorded transfers around Kabankalan City.
         </div>
       </div>
     </div>
@@ -92,14 +92,14 @@
         <div class="d-flex">
           <div>
             <i class="ti ti-route-off me-1"></i>
-            <strong>No direct ride found</strong> for your selected
+            <strong>No ride found</strong> for your selected
             locations ({{ origin.location_name }} &rarr;
             {{ destination.location_name }}).
             <div class="mt-1">
-              Only recorded routes that pass both points in a single ride
-              are offered - one continuous vehicle, no transfer. Try a
-              different pair of locations, or ask the administrator to add
-              a route that serves this pair.
+              Only recorded routes that pass both points in one ride, or two
+              rides joined by a recorded transfer, are offered. Try a
+              different pair of locations, or ask the administrator to add a
+              route or transfer that serves this pair.
             </div>
           </div>
         </div>
@@ -192,11 +192,12 @@
                 <div class="fw-bold"><i class="ti ti-map-pin me-1"></i>Why no route?</div>
               </div>
               <div class="text-muted small">
-                Find My Route only offers <strong>direct rides</strong> -
-                one continuous ride in one vehicle, no transfers. The two
-                pins on the map mark your starting point and destination;
-                no route lines are drawn because no recorded route serves
-                this pair in a single ride.
+                Find My Route offers <strong>direct rides</strong> and
+                <strong>recorded transfers</strong> - one vehicle, or two
+                vehicles joined at an administrator-recorded transfer point.
+                The two pins on the map mark your starting point and
+                destination; no route lines are drawn because no recorded
+                route or transfer serves this pair.
               </div>
               <div class="text-muted small mt-2">
                 <i class="ti ti-info-circle me-1"></i>Only the starting point
@@ -222,10 +223,12 @@
 {% endblock %}
 
 {% block extra_css %}
+{{ block.super }}
 <link href="{% static 'libs/leaflet/leaflet.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 {% include "routes/_map_assets.html" with map_page="results" %}
 <script src="{% static 'js/route-search.js' %}?v=9"></script>
 {% endblock %}

@@ -9,6 +9,9 @@ urlpatterns = [
     path('save/', views.save_route, name='save_route'),
     path('map-data/', views.journey_map_json, name='journey_map_json'),
     path(
+        'fare-version/', views.fare_version_json, name='fare_version',
+    ),
+    path(
         'destinations/', views.destination_summaries_json,
         name='destination_summaries',
     ),

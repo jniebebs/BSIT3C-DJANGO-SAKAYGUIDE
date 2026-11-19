@@ -1,16 +1,31 @@
 {% load static %}
-<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar dh-sidebar-commuter">
+<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar dh-sidebar-commuter dh-sidebar-collapsible"
+       id="commuterSidebar"
+       aria-label="Commuter navigation">
   <div class="container-fluid">
-    <div class="navbar-brand navbar-brand-autodark dh-brand">
-      <a href="{% url 'commuter_dashboard' %}" class="d-flex align-items-center gap-2 text-decoration-none">
-        <span class="dh-brand-mark">
-          <i class="fa-solid fa-route"></i>
-        </span>
-        <span class="lh-1">
-          <span class="dh-brand-name">Sakay<span class="text-warning">Guide</span></span>
-          <span class="dh-brand-sub">Commuter Portal</span>
-        </span>
-      </a>
+    <div class="dh-sidebar-head">
+      <div class="navbar-brand navbar-brand-autodark dh-brand">
+        <a href="{% url 'commuter_dashboard' %}" class="d-flex align-items-center gap-2 text-decoration-none">
+          <span class="dh-brand-mark">
+            <i class="fa-solid fa-route"></i>
+          </span>
+          <span class="lh-1 dh-brand-copy">
+            <span class="dh-brand-name">Sakay<span class="text-warning">Guide</span></span>
+            <span class="dh-brand-sub">Commuter Portal</span>
+          </span>
+        </a>
+      </div>
+
+      {# Desktop expand/collapse toggle (hidden on mobile where the hamburger takes over) #}
+      <button type="button"
+              class="dh-sidebar-toggle d-none d-lg-inline-flex"
+              id="commuterSidebarToggle"
+              aria-expanded="false"
+              aria-controls="commuterSidebar"
+              title="Expand sidebar"
+              aria-label="Expand sidebar">
+        <i class="fa-solid fa-chevron-right dh-sidebar-toggle-icon"></i>
+      </button>
     </div>
 
     <button
@@ -34,7 +49,9 @@
 
         <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'commuter_dashboard' %}active{% endif %}"
-             href="{% url 'commuter_dashboard' %}">
+             href="{% url 'commuter_dashboard' %}"
+             data-tooltip="Dashboard"
+             aria-label="Dashboard">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-solid fa-gauge-high"></i>
             </span>
@@ -44,7 +61,9 @@
 
         <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'route_search' %}active{% endif %}"
-             href="{% url 'routes:route_search' %}">
+             href="{% url 'routes:route_search' %}"
+             data-tooltip="Find My Route"
+             aria-label="Find My Route">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-solid fa-magnifying-glass-location"></i>
             </span>
@@ -53,20 +72,10 @@
         </li>
 
         <li class="nav-item mb-1">
-          <a class="nav-link" href="{% url 'routes:route_search' %}#sg-city-map-body"
-             data-bs-toggle="collapse" data-bs-target="#sg-city-map-body"
-             aria-expanded="false" aria-controls="sg-city-map-body"
-             title="Open the Google Maps view with live GPS">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa-solid fa-map-location-dot"></i>
-            </span>
-            <span class="nav-link-title">Google Maps</span>
-          </a>
-        </li>
-
-        <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'commuter_recent_searches' %}active{% endif %}"
-             href="{% url 'commuter_recent_searches' %}">
+             href="{% url 'commuter_recent_searches' %}"
+             data-tooltip="Recent Searches"
+             aria-label="Recent Searches">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-solid fa-clock-rotate-left"></i>
             </span>
@@ -80,7 +89,9 @@
 
         <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'commuter_profile' %}active{% endif %}"
-             href="{% url 'commuter_profile' %}">
+             href="{% url 'commuter_profile' %}"
+             data-tooltip="My Profile"
+             aria-label="My Profile">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-regular fa-user"></i>
             </span>
@@ -90,7 +101,9 @@
 
         <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'commuter_password_change' %}active{% endif %}"
-             href="{% url 'commuter_password_change' %}">
+             href="{% url 'commuter_password_change' %}"
+             data-tooltip="Change Password"
+             aria-label="Change Password">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="fa-solid fa-key"></i>
             </span>
@@ -101,18 +114,19 @@
         <li class="nav-item mt-auto dh-nav-sidebar-footer">
           <div class="dh-user-card">
             <span class="d-flex align-items-center gap-2 text-white min-w-0 w-100">
-              <span class="dh-avatar">{{ user.username|first|upper }}</span>
-              <span class="min-w-0 flex-grow-1">
+              <span class="dh-avatar" aria-hidden="true">{{ user.username|first|upper }}</span>
+              <span class="min-w-0 flex-grow-1 dh-user-identity">
                 <span class="dh-user-name">{{ user.get_full_name|default:user.username }}</span>
                 <span class="dh-user-role">Commuter</span>
               </span>
             </span>
             {% if request.user.is_authenticated %}
-            <form method="post" action="{% url 'logout' %}" class="m-0">
+            <form method="post" action="{% url 'logout' %}" class="m-0 dh-logout-form">
               {% csrf_token %}
               <button type="submit" class="dh-user-logout" title="Log out"
-                      style="background:none;border:0;padding:0;">
-                <i class="fas fa-sign-out-alt"></i>
+                      data-tooltip="Logout"
+                      aria-label="Logout">
+                <i class="fas fa-sign-out-alt"></i><span class="dh-user-logout-text">Logout</span>
               </button>
             </form>
             {% endif %}

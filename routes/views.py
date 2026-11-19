@@ -17,6 +17,7 @@ from .models import (
 )
 from .services import (
     destination_summaries,
+    fares_version,
     find_journeys,
     location_choices,
     locations_map,
@@ -183,6 +184,10 @@ def route_search(request):
             ('time', 'Shortest time'),
             ('transfers', 'Fewest transfers'),
         ],
+        # Fingerprint of the fare amounts embedded in this page; fare-sync.js
+        # compares it with the live value and offers a refresh when the
+        # administrator saves a change while the commuter is reading.
+        'fare_version': fares_version(),
     }
 
     template = 'routes/route_results.html' if searched else 'routes/route_search.html'
@@ -269,6 +274,21 @@ def destination_summaries_json(request):
             origin.location_id, origin=origin,
         ),
     })
+
+
+@require_GET
+@commuter_required
+def fare_version_json(request):
+    """JSON endpoint: fingerprint of the currently effective fare amounts.
+
+    GET /plan/fare-version/
+
+    ``fare-sync.js`` polls this while a commuter is reading the dashboard or
+    the journey results. When the administrator saves a fare the fingerprint
+    changes, so the page can refresh itself (or tell the commuter to refresh)
+    before the outdated amount is used.
+    """
+    return JsonResponse({'version': fares_version()})
 
 
 @require_POST

@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="{% static 'css/dashboard.css' %}?v=4" rel="stylesheet"/>
-<link href="{% static 'css/commuter.css' %}?v=1" rel="stylesheet"/>
+<link href="{% static 'css/commuter.css' %}?v=5" rel="stylesheet"/>
 {% endblock %}
 
 {# The commuter shell renders its own navigation. #}
@@ -27,5 +27,10 @@
 
 {% block extra_js %}
 <script src="{% static 'js/dashboard.js' %}?v=4"></script>
+<script src="{% static 'js/commuter-sidebar.js' %}?v=1"></script>
+<script src="{% static 'js/fare-sync.js' %}?v=1"
+        data-fare-version-url="{% url 'routes:fare_version' %}"
+        data-fare-version="{{ fare_version|default:'' }}"
+        data-fare-autoreload="{% if fare_autoreload %}true{% else %}false{% endif %}"></script>
 {% block commuter_js %}{% endblock %}
 {% endblock %}

@@ -18,9 +18,15 @@ results and opens its Route Information Panel.
         {% endif %}
         <span class="badge text-bg-blue">{{ leg.route.route_code }}</span>
       {% endfor %}
+      {% if journey.transfer_count %}
+      <span class="badge text-bg-orange">
+        <i class="ti ti-transfer me-1"></i>{{ journey.transfer_count }} transfer{{ journey.transfer_count|pluralize }}
+      </span>
+      {% else %}
       <span class="badge text-bg-green">
         <i class="ti ti-road me-1"></i>Direct route
       </span>
+      {% endif %}
       {% for mode in journey.transport_names %}
       <span class="badge text-bg-secondary">
         <i class="ti ti-bus me-1"></i>{{ mode }}
@@ -52,6 +58,9 @@ results and opens its Route Information Panel.
             Regular fare not recorded
           {% endif %}
           &middot; {{ journey.legs|length }} ride{{ journey.legs|length|pluralize }}
+          {% if journey.transfer_count %}
+          &middot; {{ journey.transfer_count }} transfer{{ journey.transfer_count|pluralize }}
+          {% endif %}
           {% if journey.total_distance_km %}
           &middot; {{ journey.total_distance_km }} km total
           {% endif %}

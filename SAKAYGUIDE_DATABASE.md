@@ -282,6 +282,7 @@ Stores fare amounts for each route and fare category, including fare history.
   3. Insert a new active row with a new `effective_date`.
 - `total_estimated_fare` is the stored estimated amount for that category. `discount_percentage` in `fare_types` is metadata for display and audit; do not apply the discount twice if the stored total is already discounted.
 - Historical and current rows are separated by `effective_date`, `expiry_date`, and `status`.
+- **Administrator console behaviour:** the fare form updates the selected active row in place, so the newly saved amount is the amount every commuter page reads immediately. Saving an active row also expires any older still-active duplicate for the same route/category. Every commuter query resolves the newest currently effective active row per `(route_id, fare_type_id)`, so a duplicate can never shadow the latest save.
 
 ### Table 10: `route_transfers`
 Stores valid connections from one route to another at a shared location.

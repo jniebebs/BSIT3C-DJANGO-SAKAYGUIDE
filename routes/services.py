@@ -1,13 +1,12 @@
 """Route-search logic for the "Where do you want to go?" feature.
 
 Everything here is computed from records already stored in sakayguide_db
-(routes, route_stops, route_fares, locations.latitude / locations.longitude).
-Nothing is invented:
+(routes, route_stops, route_fares, route_transfers, locations.latitude /
+locations.longitude). Nothing is invented:
 
-* only direct, single-ride journeys are returned: a route can be ridden in
-  either direction, and a journey exists when the route passes both the
-  origin and the destination - ridden by one vehicle, with no transfer or
-  change of vehicle ever required;
+* a journey is either one continuous ride, or two rides joined by a
+  recorded ``route_transfers`` connection (one change of vehicle at the
+  recorded transfer point). A route can be ridden in either direction;
 * the map payload carries exactly two pins - the starting point (green) and
   the destination (red) - plus the route's road geometry as one continuous
   blue path; no intermediate stop, transfer point or landmark markers are
@@ -17,14 +16,28 @@ Nothing is invented:
   places are served;
 * when coordinates are missing for an endpoint the place stays in the
   journey instructions and is reported as "map position not yet verified";
+* every fare is read from the latest *currently effective* active
+  ``route_fares`` row for the route and fare category. The stored
+  ``total_estimated_fare`` is authoritative for the full route; a partial
+  segment is scaled by its share of the recorded route distance and never
+  drops below the stored ``minimum_fare``. No amount is hard-coded;
+* travel time is based on the travelled distance: the route's recorded
+  full-route ``estimated_travel_time`` is apportioned over its measured
+  full-route distance, so a shorter origin/destination pair takes
+  proportionally less time. When a route's stop list is not ordered like the
+  vehicle's path (its measured length far exceeds the straight line between
+  its endpoints), the distance between the board and alight points is used
+  instead of the impossible zig-zag total;
 * fares and times are labelled as provisional estimates by the presentation
   layer, and a leg whose route has no active regular fare record is reported
   as "fare not recorded" rather than being given a guessed amount.
 """
-from decimal import Decimal
+import hashlib
+from decimal import Decimal, ROUND_HALF_UP
 from math import asin, cos, radians, sin, sqrt
 
 from django.db.models import Count
+from django.utils import timezone
 
 from .models import (
     BARANGAY_LOCATION_TYPE,
@@ -32,6 +45,7 @@ from .models import (
     Route,
     RouteFare,
     RouteStop,
+    RouteTransfer,
     SearchHistory,
 )
 
@@ -46,10 +60,17 @@ REGULAR_FARE_TYPE_ID = 1
 # requested.
 DISCOUNT_FARE_TYPE_IDS = (2, 4)
 
-# Find My Route presents direct rides only - one continuous ride, no
-# transfer or change of vehicle - so every journey is a single leg. The
-# number of direct rides between one pair is small (a handful of routes can
-# serve the same pair); no artificial cap is applied.
+# Find My Route presents direct rides and one-transfer journeys built from
+# the recorded ``route_transfers`` connections. The number of options for one
+# pair is small (a handful of routes can serve the same pair); no artificial
+# cap is applied, and no connection is invented.
+
+# A stop list whose measured path is much longer than the straight line
+# between the route's own endpoints is ordered by data entry, not by the
+# vehicle's journey (for example the barangays stored alphabetically on
+# KAB-JP-07). Time and distance then use the straight-line distance between
+# the board and alight points instead of an impossible zig-zag total.
+MAX_ROUTE_DETOUR_RATIO = 4.0
 
 # Distinct shades of blue, one per ride. The map draws every ride path in
 # blue; later rides use lighter/darker blues so a multi-ride journey stays
@@ -120,6 +141,151 @@ def _endpoint_stop(location, order, time):
 
 
 # ---------------------------------------------------------------------------
+# Current fare resolution (single source of truth for every commuter display)
+# ---------------------------------------------------------------------------
+def fare_is_current(fare, today=None):
+    """Whether an active fare row applies today.
+
+    A row applies when it is active, its effective date has arrived and it
+    has not expired. These are the same rules the administrator's fare
+    history uses, so the commuter and the management console always agree.
+    """
+    if fare.status != RouteFare.STATUS_ACTIVE:
+        return False
+    today = today or timezone.localdate()
+    if fare.effective_date and fare.effective_date > today:
+        return False
+    if fare.expiry_date and fare.expiry_date < today:
+        return False
+    return True
+
+
+def latest_active_fares(fares, today=None):
+    """Pick the latest current fare row per ``(route, fare_type)``.
+
+    ``fares`` is any iterable of ``RouteFare`` rows (a queryset, a prefetch
+    cache or a plain list). When more than one active row exists for the same
+    route and category the one with the newest effective date - and, on a
+    tie, the newest primary key - wins. That keeps the admin console from
+    ever leaving two active records that could disagree.
+    """
+    today = today or timezone.localdate()
+    selected = {}
+    for fare in fares:
+        if not fare_is_current(fare, today):
+            continue
+        key = (fare.route_id, fare.fare_type_id)
+        current = selected.get(key)
+        if current is None or (
+            fare.effective_date, fare.fare_id
+        ) > (
+            current.effective_date, current.fare_id
+        ):
+            selected[key] = fare
+    return selected
+
+
+def current_fare_map(fare_type_ids=None, route_ids=None):
+    """``{(route_id, fare_type_id): fare}`` for every currently active fare."""
+    fares = RouteFare.objects.all()
+    if fare_type_ids is not None:
+        fares = fares.filter(fare_type_id__in=fare_type_ids)
+    if route_ids is not None:
+        fares = fares.filter(route_id__in=route_ids)
+    return latest_active_fares(fares)
+
+
+def fares_version():
+    """Short fingerprint of every currently effective fare amount.
+
+    Used by the commuter pages to notice, without reloading, that the
+    administrator saved a new fare. Editing an amount, adding a category,
+    deleting a record or expiring one all change the fingerprint.
+    """
+    rows = RouteFare.objects.values_list(
+        'fare_id', 'route_id', 'fare_type_id', 'minimum_fare',
+        'fare_per_km', 'total_estimated_fare', 'effective_date', 'expiry_date',
+    ).order_by('fare_id')
+    today = timezone.localdate()
+    parts = []
+    for (fare_id, route_id, fare_type_id, minimum, per_km, total,
+         effective, expiry) in rows:
+        if effective and effective > today:
+            continue
+        if expiry and expiry < today:
+            continue
+        parts.append(
+            f'{fare_id}:{route_id}:{fare_type_id}:{minimum}:{per_km}:'
+            f'{total}:{effective}:{expiry}'
+        )
+    return hashlib.sha256('|'.join(parts).encode('utf-8')).hexdigest()[:16]
+
+
+def _segment_minutes(full_minutes, segment_distance_km, route_distance_km):
+    """Travel time for one travelled segment, proportional to its distance.
+
+    The route's recorded ``estimated_travel_time`` is the authoritative
+    full-route duration (a full-length segment always returns it unchanged).
+    A shorter segment takes the same share of that time as its share of the
+    route's measured distance, rounded to the nearest minute, and never less
+    than one minute. The time therefore follows the distance the commuter
+    actually travels on the recorded route.
+    """
+    full_minutes = int(full_minutes or 0)
+    if full_minutes <= 0:
+        return 0
+    if route_distance_km <= 0:
+        return full_minutes
+
+    ratio = max(float(segment_distance_km), 0.0) / float(route_distance_km)
+    if ratio >= 1:
+        return full_minutes
+    minutes = int(ratio * full_minutes + 0.5)
+    return max(1, minutes)
+
+
+def _segment_fare(fare_record, segment_distance_km, route_distance_km):
+    """Fare for one travelled segment of a route, from its stored fare row.
+
+    ``total_estimated_fare`` is the authoritative amount for the full route
+    (a full-length segment always returns it unchanged). A shorter segment is
+    charged the same share of the stored total as its share of the route's
+    recorded ``minimum_fare + fare_per_km * distance`` pricing, so the
+    administrator's per-kilometre rate genuinely lowers the price for a
+    shorter trip. When no per-kilometre rate is recorded the share is the
+    plain distance share.
+
+    The result is never below ``minimum_fare`` and never above the full-route
+    total, so the administrator's values are always the source of truth.
+    """
+    if fare_record is None:
+        return None
+    total = Decimal(fare_record.total_estimated_fare or 0)
+    minimum = Decimal(fare_record.minimum_fare or 0)
+    per_km = Decimal(fare_record.fare_per_km or 0)
+    if total <= 0 or route_distance_km <= 0:
+        return total
+
+    segment = Decimal(str(max(float(segment_distance_km), 0.0)))
+    full = Decimal(str(float(route_distance_km)))
+    if segment >= full:
+        return total
+
+    if per_km > 0:
+        full_formula = minimum + per_km * full
+        segment_formula = minimum + per_km * segment
+        amount = total * (segment_formula / full_formula)
+    else:
+        amount = total * (segment / full)
+
+    amount = min(amount, total)
+    floor = min(minimum, total)
+    if amount < floor:
+        amount = floor
+    return amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+# ---------------------------------------------------------------------------
 # Loading the active network
 # ---------------------------------------------------------------------------
 def _load_network():
@@ -181,33 +347,69 @@ def _load_network():
         for rid, entries in stops_by_route.items()
     }
 
-    # Active regular fares; the latest effective_date wins.
-    fares = {}
-    for f in RouteFare.objects.filter(
-        route_id__in=routes,
-        fare_type_id=REGULAR_FARE_TYPE_ID,
-        status=RouteFare.STATUS_ACTIVE,
-    ).order_by('effective_date'):
-        fares[f.route_id] = f
+    # Distance along each recorded route, used to scale a segment's fare and
+    # time. A stop list may be stored in an order that does not follow the
+    # vehicle's actual path (for example alphabetically). When its measured
+    # length is far beyond the straight line between the route's endpoints,
+    # the segment is measured straight between board and alight instead.
+    route_distances = {
+        rid: _distance_km_for_stops(entries)
+        for rid, entries in stops_by_route.items()
+    }
+    route_straight_distances = {}
+    straight_distance_routes = set()
+    for route_id, route in routes.items():
+        origin_coord = _coord(route.origin)
+        destination_coord = _coord(route.destination)
+        straight_km = 0.0
+        if origin_coord and destination_coord:
+            straight_km = round(_haversine_km(
+                origin_coord[0], origin_coord[1],
+                destination_coord[0], destination_coord[1],
+            ), 2)
+        route_straight_distances[route_id] = straight_km
+        along_km = route_distances.get(route_id, 0.0)
+        if (
+            straight_km > 0
+            and along_km > straight_km * MAX_ROUTE_DETOUR_RATIO
+        ):
+            straight_distance_routes.add(route_id)
 
-    # Discounted (Student/PWD) fares per route; latest effective_date wins.
+    # Current regular and discounted fares, resolved through one helper so
+    # the journey engine, the dashboard cards and the search panel can never
+    # disagree about which saved amount is the latest.
+    current = latest_active_fares(RouteFare.objects.filter(
+        route_id__in=routes,
+        fare_type_id__in=(REGULAR_FARE_TYPE_ID, *DISCOUNT_FARE_TYPE_IDS),
+    ).order_by('effective_date', 'fare_id'))
+
+    fares = {
+        route_id: fare
+        for (route_id, fare_type_id), fare in current.items()
+        if fare_type_id == REGULAR_FARE_TYPE_ID
+    }
     # Student (2) is preferred when a route carries both discounted records;
     # PWD (4) is used as a fallback. A route with no discounted record is
     # reported as "not recorded" - never given a computed guess.
     student_fares = {}
     for fare_type_id in DISCOUNT_FARE_TYPE_IDS:
-        latest = {}
-        for f in RouteFare.objects.filter(
-            route_id__in=routes,
-            fare_type_id=fare_type_id,
-            status=RouteFare.STATUS_ACTIVE,
-        ).order_by('effective_date'):
-            latest[f.route_id] = f
-        for route_id, fare in latest.items():
-            student_fares.setdefault(route_id, fare)
+        for (route_id, current_type_id), fare in current.items():
+            if current_type_id == fare_type_id:
+                student_fares.setdefault(route_id, fare)
+
+    # Recorded one-transfer connections between active routes, indexed by
+    # the first ride. Each row is one real, administrator-managed transfer.
+    transfers_from = {}
+    for transfer in RouteTransfer.objects.filter(
+        from_route_id__in=routes,
+        to_route_id__in=routes,
+    ).select_related('to_route', 'transfer_location').order_by('transfer_id'):
+        transfers_from.setdefault(transfer.from_route_id, []).append(transfer)
 
     return (
         routes, stops_by_route, order_index, fares, student_fares,
+        route_distances, route_straight_distances, straight_distance_routes,
+        transfers_from,
     )
 
 
@@ -219,13 +421,28 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
 
     The recorded stop list can be travelled in either direction, so the
     segment is reversed when the destination comes before the origin on the
-    stored route. ``minutes`` is the absolute difference of the recorded
-    cumulative stop times, which stays correct for the return trip. The
-    intermediate stops are deliberately *not* copied into the journey
-    payload: the commuter only sees the starting point, the destination and
-    one continuous ride.
+    stored route. The intermediate stops are deliberately *not* copied into
+    the journey payload: the commuter only sees the starting point, the
+    destination and one continuous ride.
+
+    Travel time is based on the distance of the travelled segment: the
+    route's recorded full-route ``estimated_travel_time`` is apportioned
+    across its measured full-route distance, so boarding or alighting at a
+    different stop recalculates the minutes. A stop list recorded in an order
+    that does not follow the vehicle's path is measured straight between the
+    board and alight points, so an alphabetical barangay list cannot collapse
+    a 12 km hop to one minute. When no coordinates are recorded the
+    cumulative stop times are used as a fallback.
+
+    The fare is the segment's share of the latest active full-route fare, so
+    changing the starting point or destination recalculates the amount while
+    the administrator's saved full-route total stays authoritative.
     """
-    (routes, stops_by_route, order_index, fares, student_fares) = ctx
+    (
+        routes, stops_by_route, order_index, fares, student_fares,
+        route_distances, route_straight_distances, straight_distance_routes,
+        _transfers,
+    ) = ctx
     index = order_index[route_id]
     i, j = index[from_location_id], index[to_location_id]
     forward = i <= j
@@ -235,26 +452,52 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
         segment = list(reversed(stops_by_route[route_id][j:i + 1]))
     start, end = segment[0], segment[-1]
 
-    minutes = abs(end['time'] - start['time'])
+    if route_id in straight_distance_routes:
+        # The recorded stop order zig-zags (it is not the travel path), so
+        # the segment is measured directly between the two points the
+        # commuter boards and alights at.
+        board_coord = _coord(start['location'])
+        alight_coord = _coord(end['location'])
+        if board_coord and alight_coord:
+            distance_km = round(_haversine_km(
+                board_coord[0], board_coord[1],
+                alight_coord[0], alight_coord[1],
+            ), 2)
+        else:
+            distance_km = 0.0
+        full_distance_km = route_straight_distances.get(route_id, 0.0)
+    else:
+        distance_km = _distance_km_for_stops(segment)
+        full_distance_km = route_distances.get(route_id, 0.0)
+    full_minutes = routes[route_id].estimated_travel_time or 0
+
+    # Time follows distance: spread the recorded full-route duration over the
+    # measured full-route distance and charge the segment its proportional
+    # share. A full-length segment returns the route's saved duration exactly.
+    minutes = _segment_minutes(full_minutes, distance_km, full_distance_km)
     if minutes <= 0:
-        minutes = routes[route_id].estimated_travel_time
+        # No recorded time or no verified coordinates: fall back to the
+        # recorded cumulative stop times, then to the route's estimate.
+        minutes = abs(end['time'] - start['time'])
+    if minutes <= 0:
+        minutes = full_minutes
 
     fare_record = fares.get(route_id)
     # A route without an active regular fare record must never be shown with
     # a guessed amount; the presentation layer reports "fare not recorded".
-    fare = fare_record.total_estimated_fare if fare_record else None
+    fare = _segment_fare(fare_record, distance_km, full_distance_km)
     discount_fare_record = student_fares.get(route_id)
-    discount_fare = (
-        discount_fare_record.total_estimated_fare
-        if discount_fare_record else None
+    discount_fare = _segment_fare(
+        discount_fare_record, distance_km, full_distance_km,
     )
-    distance_km = _distance_km_for_stops(segment)
 
     return {
         'route': routes[route_id],
         'route_id': route_id,
         'board_at': start['name'],
         'alight_at': end['name'],
+        'board_id': from_location_id,
+        'alight_id': to_location_id,
         'minutes': minutes,
         'distance_km': distance_km,
         'fare': fare,
@@ -269,21 +512,34 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
 def _build_steps(origin_name, destination_name, legs, transfers):
     """Generate the step-by-step 'Your Journey' instructions.
 
-    Every journey is a single direct ride, so the instructions are always
-    short: board, ride, alight. No stops, no transfers, no vehicle change.
+    A direct ride is board-and-alight. When the journey changes vehicle the
+    recorded transfer instructions and waiting time are inserted between the
+    two rides, so the commuter knows exactly where to alight and board again.
     """
     steps = [f'Start at {origin_name}.']
-    for leg in legs:
+    for leg_index, leg in enumerate(legs):
         route = leg['route']
         mode = route.transport_type.transport_name.lower()
         steps.append(
             f'Board the {mode} {route.route_code} ({route.route_name}) '
             f'at {leg["board_at"]}.'
         )
-        steps.append(
-            f'Ride directly to {leg["alight_at"]} — no transfer needed.'
-        )
-    steps.append(f'Get off at {destination_name}.')
+        if leg_index < len(legs) - 1:
+            steps.append(
+                f'Ride to {leg["alight_at"]} and alight there.'
+            )
+            transfer = transfers[leg_index] if leg_index < len(transfers) else None
+            if transfer:
+                wait = transfer.get('time') or 0
+                steps.append(
+                    f'Transfer at {transfer["location_name"]} to '
+                    f'{transfer["to_code"]}. {transfer["instructions"]}'
+                    + (f' Allow about {wait} minutes.' if wait else '')
+                )
+        else:
+            steps.append(f'Ride to {leg["alight_at"]}.')
+    if not legs or legs[-1]['alight_at'] != destination_name:
+        steps.append(f'Get off at {destination_name}.')
     return steps
 
 
@@ -458,9 +714,13 @@ def _finalize(raw_journey, origin, destination, include_map=True):
     legs = raw_journey['legs']
     transfers = raw_journey.get('transfer_details', [])
 
-    # Single continuous ride: one blue line.
+    # One blue path per ride; a recorded transfer between two rides keeps
+    # each leg in the blue family with its own swatch.
     for leg_index, leg in enumerate(legs):
         leg['color'] = LEG_COLORS[leg_index % len(LEG_COLORS)]
+        leg['transfer_after'] = (
+            transfers[leg_index] if leg_index < len(transfers) else None
+        )
 
     transfer_fare = sum(
         (t['fare'] for t in transfers if t['fare'] is not None),
@@ -544,15 +804,39 @@ def _finalize(raw_journey, origin, destination, include_map=True):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+def _transfer_payload(transfer, first_route, second_route):
+    """One recorded transfer, shaped for the journey panel and map."""
+    location = transfer.transfer_location
+    coordinate = _coord(location)
+    return {
+        'transfer_id': transfer.transfer_id,
+        'location_id': transfer.transfer_location_id,
+        'location_name': location.location_name,
+        'lat': coordinate[0] if coordinate else None,
+        'lng': coordinate[1] if coordinate else None,
+        'from_code': first_route.route_code,
+        'to_code': second_route.route_code,
+        'instructions': transfer.transfer_instructions,
+        'time': transfer.estimated_transfer_time or 0,
+        'fare': transfer.additional_estimated_fare,
+        'fare_recorded': True,
+    }
+
+
 def find_journeys(origin_id, destination_id, origin=None, destination=None,
                   network=None, include_map=True):
-    """Return the direct rides supporting a trip between two locations.
+    """Return recorded ride options supporting a trip between two locations.
 
-    Find My Route only offers single, continuous rides: a journey is
-    returned when a recorded route passes both the origin and the
-    destination, ridden in either direction of its stop list. No transfer
-    or change of vehicle is ever required. If no recorded route serves the
-    pair, an empty list is returned and the page says so honestly.
+    Every journey is built from ``route_stops`` and ``route_transfers``:
+
+    * a direct ride when one route passes both the origin and the destination
+      (ridden in either direction of its stop list);
+    * a two-ride journey when a recorded transfer connects a route serving
+      the origin to a route serving the destination at the recorded transfer
+      point.
+
+    No stop, connection or fare is invented. If no recorded route or transfer
+    serves the pair, an empty list is returned and the page says so honestly.
 
     ``network`` may be a context returned by ``_load_network()`` so repeated
     searches reuse the same in-memory indexes. ``include_map=False`` skips
@@ -564,7 +848,11 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
         destination = Location.objects.get(pk=destination_id)
 
     ctx = network if network is not None else _load_network()
-    (routes, stops_by_route, order_index, fares, student_fares) = ctx
+    (
+        routes, stops_by_route, order_index, fares, student_fares,
+        route_distances, _straight_distances, _straight_routes,
+        transfers_from,
+    ) = ctx
 
     journeys = []
     seen = set()
@@ -587,6 +875,57 @@ def find_journeys(origin_id, destination_id, origin=None, destination=None,
                 origin, destination, include_map=include_map,
             )
         )
+
+    # One recorded change of vehicle. Each ``route_transfers`` row names the
+    # first route, the second route and the place where the commuter alights
+    # and boards again; the extra recorded fare is added by ``_finalize``.
+    for first_route_id in ordered_route_ids:
+        first_index = order_index.get(first_route_id, {})
+        if origin_id not in first_index:
+            continue
+        for transfer in transfers_from.get(first_route_id, ()):
+            second_route_id = transfer.to_route_id
+            if second_route_id == first_route_id:
+                continue
+            second_index = order_index.get(second_route_id, {})
+            transfer_location_id = transfer.transfer_location_id
+            if transfer_location_id not in first_index:
+                continue
+            if transfer_location_id not in second_index:
+                continue
+            if destination_id not in second_index:
+                continue
+            if transfer_location_id in (origin_id, destination_id):
+                continue
+
+            first_leg = _make_leg(
+                first_route_id, origin_id, transfer_location_id, ctx,
+            )
+            second_leg = _make_leg(
+                second_route_id, transfer_location_id, destination_id, ctx,
+            )
+            key = (
+                first_leg['route_id'], first_leg['board_at'],
+                first_leg['alight_at'], second_leg['route_id'],
+                second_leg['alight_at'],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            journeys.append(
+                _finalize(
+                    {
+                        'legs': [first_leg, second_leg],
+                        'transfer_details': [
+                            _transfer_payload(
+                                transfer, routes[first_route_id],
+                                routes[second_route_id],
+                            ),
+                        ],
+                    },
+                    origin, destination, include_map=include_map,
+                )
+            )
 
     return journeys
 
@@ -850,20 +1189,17 @@ def transport_options():
     options = []
     for route in routes:
         stops = sorted(route.stops.all(), key=lambda stop: stop.stop_order)
-        regular_fare = None
-        student_fare = None
-        pwd_fare = None
-        for fare in sorted(
-            (f for f in route.fares.all()
-             if f.status == RouteFare.STATUS_ACTIVE),
-            key=lambda fare: fare.effective_date,
-        ):
-            if fare.fare_type_id == REGULAR_FARE_TYPE_ID:
-                regular_fare = fare
-            elif fare.fare_type_id == DISCOUNT_FARE_TYPE_IDS[0]:
-                student_fare = fare
-            elif fare.fare_type_id == DISCOUNT_FARE_TYPE_IDS[1]:
-                pwd_fare = fare
+        # One common resolver for the whole network: the newest currently
+        # effective active row per (route, fare category) is the amount the
+        # commuter sees, exactly as saved by the administrator.
+        current = latest_active_fares(route.fares.all())
+        regular_fare = current.get((route.route_id, REGULAR_FARE_TYPE_ID))
+        student_fare = current.get(
+            (route.route_id, DISCOUNT_FARE_TYPE_IDS[0]),
+        )
+        pwd_fare = current.get(
+            (route.route_id, DISCOUNT_FARE_TYPE_IDS[1]),
+        )
         discounted = student_fare or pwd_fare
 
         distance = route_distance_km(stops)

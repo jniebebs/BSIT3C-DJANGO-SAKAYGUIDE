@@ -21,7 +21,7 @@ from routes.models import (
     TransportationType,
 )
 from routes.services import (
-    location_choices,
+    fares_version,
     popular_destinations,
     transport_options,
 )
@@ -118,18 +118,18 @@ def _network_snapshot():
 def dashboard(request):
     """The commuter home page.
 
-    Shows a welcome message, a quick route search, the commuter's own recent
-    searches, the most popular destinations and the transport options that
-    are currently active.
+    Shows a welcome message, a prominent Find My Route shortcut, the
+    commuter's own recent searches, the most popular destinations and the
+    transport options that are currently active.
     """
     snapshot = _network_snapshot()
 
     try:
         options = transport_options()
-        locations = location_choices()
         popular = popular_destinations(limit=6)
+        fare_version = fares_version()
     except DatabaseError:
-        options, locations, popular = [], [], []
+        options, popular, fare_version = [], [], ''
 
     jeepney = [
         option for option in options
@@ -147,7 +147,6 @@ def dashboard(request):
 
     return render(request, 'commuter/dashboard.html', {
         'snapshot': snapshot,
-        'locations': locations,
         'options': options,
         'jeepney_options': jeepney,
         'tricycle_options': tricycle,
@@ -159,6 +158,8 @@ def dashboard(request):
         'popular': popular,
         'recent_searches': _recent_searches(request.user),
         'saved_routes': _saved_routes(request.user),
+        'fare_version': fare_version,
+        'fare_autoreload': True,
     })
 
 

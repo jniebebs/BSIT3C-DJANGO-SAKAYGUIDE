@@ -371,7 +371,6 @@ class CommuterPortalTests(AccountTestBase):
 
     @patch('apps.core.commuter_views.popular_destinations', return_value=[])
     @patch('apps.core.commuter_views.transport_options', return_value=[])
-    @patch('apps.core.commuter_views.location_choices', return_value=[])
     def test_commuter_can_access_the_commuter_dashboard(self, *mocks):
         self.client.force_login(self.commuter)
 
@@ -379,7 +378,7 @@ class CommuterPortalTests(AccountTestBase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'commuter/dashboard.html')
-        self.assertContains(response, 'Quick route search')
+        self.assertContains(response, 'Find My Route')
         self.assertContains(response, 'Popular destinations')
         self.assertContains(response, 'Available transportation')
         self.assertContains(response, 'My recent searches')
@@ -403,7 +402,6 @@ class CommuterPortalTests(AccountTestBase):
             'fare': 15,
         }]
         with patch('apps.core.commuter_views.transport_options', return_value=options), \
-                patch('apps.core.commuter_views.location_choices', return_value=[]), \
                 patch('apps.core.commuter_views.popular_destinations', return_value=[]):
             response = self.client.get(reverse('commuter_dashboard'))
 
@@ -411,6 +409,33 @@ class CommuterPortalTests(AccountTestBase):
         self.assertContains(response, '25 min')
         self.assertContains(response, 'Jeepney')
         self.assertContains(response, '4.5 km')
+
+    def test_commuter_dashboard_uses_the_latest_saved_fare_amounts(self):
+        """The rendered dashboard shows the amounts currently in route_fares."""
+        from routes.services import transport_options
+
+        self.client.force_login(self.commuter)
+        priced = [
+            option for option in transport_options()
+            if option['fare'] is not None
+        ]
+        self.assertTrue(priced)
+
+        response = self.client.get(reverse('commuter_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        for option in priced[:5]:
+            self.assertContains(response, f'&#8369;{option["fare"]}')
+
+    def test_fare_version_endpoint_returns_the_live_fingerprint(self):
+        from routes.services import fares_version
+
+        self.client.force_login(self.commuter)
+
+        response = self.client.get(reverse('routes:fare_version'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['version'], fares_version())
 
     def test_commuter_can_search_routes(self):
         self.client.force_login(self.commuter)

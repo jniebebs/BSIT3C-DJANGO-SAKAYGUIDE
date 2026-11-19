@@ -2,6 +2,381 @@
    SakayGuide commuter portal
    Layered on top of Tabler + app-theme.css + dashboard.css.
    ------------------------------------------------------------------ */
+/* Collapsible sidebar (desktop) --------------------------------------- */
+
+/* The collapsed state is the default on desktop: icons only, narrow rail.
+   Clicking the toggle expands to the full 15rem width with labels. */
+.dh-sidebar-collapsible {
+  overflow-x: hidden;
+}
+
+.dh-sidebar-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dh-sidebar-toggle {
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  margin-right: 0.75rem;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  transition: color 0.18s ease, background-color 0.18s ease,
+    transform 0.25s ease;
+}
+
+.dh-sidebar-toggle:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dh-sidebar-toggle-icon {
+  transition: transform 0.25s ease;
+}
+
+.dh-sidebar-collapsible.is-expanded .dh-sidebar-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.dh-user-logout-text {
+  display: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.dh-logout-form {
+  display: flex;
+  align-items: center;
+}
+
+.dh-user-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+@media (min-width: 992px) {
+  .page .dh-sidebar-collapsible {
+    width: 4.75rem;
+    transition: width 0.25s ease;
+    overflow: visible;
+    scrollbar-width: none;
+  }
+
+  .page .dh-sidebar-collapsible::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page .dh-sidebar-collapsible ~ .page-wrapper {
+    margin-left: 4.75rem;
+    transition: margin-left 0.25s ease;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded {
+    width: 15rem;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded ~ .page-wrapper {
+    margin-left: 15rem;
+  }
+
+  .page .dh-sidebar-collapsible {
+    transition: width 0.25s ease, margin-left 0.25s ease;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* ---- Collapsed state: icons only --------------------------------- */
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .navbar-brand {
+    padding: 1.05rem 0;
+    justify-content: center;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-sidebar-head {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.35rem;
+    padding-top: 0.6rem;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-brand {
+    padding-right: 0;
+    padding-left: 0;
+    justify-content: center;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-sidebar-toggle {
+    position: static;
+    margin: 0 0 0.35rem;
+    width: 2.05rem;
+    height: 1.6rem;
+    border-radius: 0.5rem;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-brand-copy,
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-nav-section,
+  .page .dh-sidebar-collapsible:not(.is-expanded) .nav-link-title,
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-identity {
+    display: none;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .navbar-nav .nav-link {
+    justify-content: center;
+    gap: 0;
+    margin-left: 0.55rem;
+    margin-right: 0.55rem;
+    padding: 0.65rem 0.4rem;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .nav-link-icon {
+    width: auto;
+    font-size: 1.12rem;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-nav-sidebar-footer {
+    padding: 0 0.4rem;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-card {
+    flex-direction: column;
+    gap: 0.35rem;
+    justify-content: center;
+    padding: 0.5rem;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-card > .d-flex {
+    justify-content: center;
+    gap: 0;
+    width: auto !important;
+  }
+
+  /* ---- Tooltips: identify each hidden icon while collapsed ---------- */
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .nav-link[data-tooltip] {
+    position: relative;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .nav-link[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 16px);
+    top: 50%;
+    transform: translate(-6px, -50%);
+    display: inline-block;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.45rem;
+    background: #0b222e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.55);
+    color: #dff3f8;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1060;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .nav-link[data-tooltip]:hover::after,
+  .page .dh-sidebar-collapsible:not(.is-expanded) .nav-link[data-tooltip]:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-logout[data-tooltip] {
+    position: relative;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-logout[data-tooltip]:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-logout[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 14px);
+    top: 50%;
+    transform: translate(-6px, -50%);
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.45rem;
+    background: #0b222e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.55);
+    color: #dff3f8;
+    font-size: 0.76rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1060;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-logout[data-tooltip]:hover::after,
+  .page .dh-sidebar-collapsible:not(.is-expanded) .dh-user-logout[data-tooltip]:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+
+  /* ---- Expanded state: full labels + profile ------------------------- */
+
+  .page .dh-sidebar-collapsible.is-expanded .navbar-brand {
+    padding: 1.05rem 0.5rem 1.05rem 1.25rem;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded .dh-user-logout-text {
+    display: inline;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded .dh-user-logout {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.45rem;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded .dh-user-logout:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded .dh-user-card {
+    padding: 0.65rem;
+  }
+
+  .page .dh-sidebar-collapsible.is-expanded .dh-sidebar-toggle {
+    opacity: 0.75;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .dh-sidebar-head {
+    width: 100%;
+  }
+
+  .dh-sidebar-toggle {
+    display: none !important;
+  }
+
+  .dh-user-logout-text {
+    display: inline;
+    font-size: 0.8rem;
+    color: #ffffff;
+  }
+
+  .dh-user-logout {
+    gap: 0.6rem;
+  }
+}
+
+/* Smooth layout transition when toggling ------------------------------- */
+.page .page-wrapper,
+.page .dh-sidebar-collapsible {
+  transition: margin-left 0.25s ease, width 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page .page-wrapper,
+  .page .dh-sidebar-collapsible,
+  .dh-sidebar-toggle,
+  .dh-sidebar-toggle-icon {
+    transition: none !important;
+  }
+}
+
+/* Find My Route promo card --------------------------------------------- */
+
+.cm-findroute {
+  overflow: hidden;
+  border: 0;
+  background:
+    radial-gradient(90% 130% at 88% -20%,
+      color-mix(in srgb, var(--cm-accent) 38%, transparent) 0%,
+      transparent 55%),
+    radial-gradient(70% 110% at -5% 115%,
+      color-mix(in srgb, var(--cm-accent) 22%, transparent) 0%,
+      transparent 60%),
+    linear-gradient(120deg, #0d2430 0%, #12384a 48%, #0f2c3f 100%);
+  box-shadow: 0 18px 34px -22px rgba(8, 32, 44, 0.75);
+}
+
+.cm-findroute-inner {
+  position: relative;
+}
+
+.cm-findroute-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.1rem;
+  height: 4.1rem;
+  flex-shrink: 0;
+  border-radius: 1.1rem;
+  font-size: 1.5rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--cm-accent) 0%, #0891b2 100%);
+  box-shadow: 0 12px 26px -10px rgba(34, 211, 238, 0.55);
+}
+
+.cm-findroute .card-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.cm-findroute-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.cm-findroute-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #ffffff;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cm-findroute-chip.is-jeepney { color: #ffd97a; border-color: rgba(255, 217, 122, 0.45); }
+.cm-findroute-chip.is-bus { color: #93c5fd; border-color: rgba(147, 197, 253, 0.45); }
+.cm-findroute-chip.is-tricycle { color: #d8b4fe; border-color: rgba(216, 180, 254, 0.45); }
+
+.cm-findroute-cta {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 26px -12px rgba(34, 211, 238, 0.6);
+}
 
 .cm-dashboard {
   --cm-accent: #22d3ee;
@@ -13,6 +388,8 @@
 
 /* The commuter shell keeps the same sidebar geometry as the admin one. */
 .dh-sidebar-commuter {
+  --cm-accent: #22d3ee;
+  --cm-accent-soft: rgba(34, 211, 238, 0.14);
   --tblr-navbar-bg: #0d2430;
   background:
     radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--cm-accent) 16%, transparent) 0%, transparent 55%),

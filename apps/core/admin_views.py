@@ -16,7 +16,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.core.paginator import Paginator
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Min, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -1025,6 +1025,30 @@ def stop_delete(request, pk):
 # Fares
 # ---------------------------------------------------------------------------
 
+def _retire_older_active_fares(fare):
+    """Keep one authoritative active row per route and fare category.
+
+    The newest saved amount must be the one every commuter page reads. Any
+    older still-active row for the same route/category is moved to the
+    recorded history instead of being deleted, so the administrator's change
+    can never be shadowed by a duplicate record.
+    """
+    if fare.status != RouteFare.STATUS_ACTIVE:
+        return
+    siblings = RouteFare.objects.filter(
+        route_id=fare.route_id,
+        fare_type_id=fare.fare_type_id,
+        status=RouteFare.STATUS_ACTIVE,
+        effective_date__lte=fare.effective_date,
+    ).exclude(pk=fare.pk)
+    for sibling in siblings:
+        sibling.status = RouteFare.STATUS_EXPIRED
+        candidate = fare.effective_date - timedelta(days=1)
+        if sibling.effective_date and candidate >= sibling.effective_date:
+            sibling.expiry_date = candidate
+        sibling.save(update_fields=['status', 'expiry_date'])
+
+
 @administrator_required
 def fare_list(request):
     query = request.GET.get('q', '').strip()
@@ -1066,16 +1090,27 @@ def fare_create(request):
 
     form = RouteFareForm(request.POST or None, route=route)
     if request.method == 'POST' and form.is_valid():
-        fare = form.save()
-        _log_admin_action(
-            request, 'CREATE', 'route_fares', fare.pk,
-            f'Added {fare.fare_type} fare of PHP {fare.total_estimated_fare} '
-            f'to route "{fare.route.route_code}".',
-        )
-        messages.success(request, 'Fare record was created.')
-        if route:
-            return redirect('management_route_detail', pk=route.pk)
-        return redirect('management_fares')
+        try:
+            with transaction.atomic(using='sakayguide'):
+                fare = form.save()
+                _retire_older_active_fares(fare)
+        except (IntegrityError, DatabaseError) as exc:
+            messages.error(request, _friendly_database_error(exc))
+        else:
+            _log_admin_action(
+                request, 'CREATE', 'route_fares', fare.pk,
+                f'Added {fare.fare_type} fare of PHP {fare.total_estimated_fare} '
+                f'to route "{fare.route.route_code}".',
+            )
+            messages.success(
+                request,
+                f'{fare.fare_type} fare saved at '
+                f'PHP {fare.total_estimated_fare} for route '
+                f'{fare.route.route_code}. Commuter pages now use this amount.',
+            )
+            if route:
+                return redirect('management_route_detail', pk=route.pk)
+            return redirect('management_fares')
 
     return render(request, 'management/transit_form.html', {
         'form': form,
@@ -1102,14 +1137,25 @@ def fare_edit(request, pk):
         request.POST or None, instance=fare, route=fare.route
     )
     if request.method == 'POST' and form.is_valid():
-        fare = form.save()
-        _log_admin_action(
-            request, 'UPDATE', 'route_fares', fare.pk,
-            f'Updated {fare.fare_type} fare on route '
-            f'"{fare.route.route_code}" to PHP {fare.total_estimated_fare}.',
-        )
-        messages.success(request, 'Fare record was updated.')
-        return redirect('management_route_detail', pk=fare.route_id)
+        try:
+            with transaction.atomic(using='sakayguide'):
+                fare = form.save()
+                _retire_older_active_fares(fare)
+        except (IntegrityError, DatabaseError) as exc:
+            messages.error(request, _friendly_database_error(exc))
+        else:
+            _log_admin_action(
+                request, 'UPDATE', 'route_fares', fare.pk,
+                f'Updated {fare.fare_type} fare on route '
+                f'"{fare.route.route_code}" to PHP {fare.total_estimated_fare}.',
+            )
+            messages.success(
+                request,
+                f'{fare.fare_type} fare updated to '
+                f'PHP {fare.total_estimated_fare} for route '
+                f'{fare.route.route_code}. Commuter pages now use this amount.',
+            )
+            return redirect('management_route_detail', pk=fare.route_id)
 
     return render(request, 'management/transit_form.html', {
         'form': form,

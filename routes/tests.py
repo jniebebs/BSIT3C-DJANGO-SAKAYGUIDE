@@ -2,62 +2,321 @@
 
 These tests use the live ``sakayguide_db`` through the test MIRROR alias, so
 they never create or change tables; the journey search itself is read-only.
+They verify that every displayed amount comes from the latest saved
+``route_fares`` row and that fares are recalculated per travelled segment.
 """
-from django.test import TestCase
+from datetime import timedelta
+from decimal import Decimal
 
-from .models import Location
-from .services import LEG_COLORS, find_journeys
+from django.test import TestCase
+from django.utils import timezone
+
+from .models import Location, Route, RouteFare
+from .services import (
+    LEG_COLORS,
+    _haversine_km,
+    _load_network,
+    _segment_minutes,
+    fare_is_current,
+    fares_version,
+    find_journeys,
+    latest_active_fares,
+    transport_options,
+)
 
 
 class NetworkSearchTests(TestCase):
     databases = {'sakayguide'}
 
-    def test_every_journey_is_a_direct_ride(self):
-        """Find My Route offers single continuous rides only.
-
-        Every journey returned for any active pair must be one direct ride:
-        a single leg, no transfer, and the leg starts and ends at the two
-        searched endpoints. Pairs no recorded route serves in one ride
-        simply return no journeys - nothing is invented.
-        """
-        locations = list(
+    @classmethod
+    def setUpTestData(cls):
+        cls.locations = list(
             Location.objects.filter(status='active').order_by('location_id')
         )
+        cls.network = _load_network()
+
+    def test_every_journey_uses_recorded_network_records(self):
+        """Every option is one direct ride or one recorded transfer.
+
+        Legs join at the recorded transfer point, the first leg starts at
+        the searched origin and the last leg ends at the searched
+        destination. No leg, connection or fare is invented.
+        """
         checked_pairs = 0
-        for origin in locations:
-            for destination in locations:
+        checked_legs = 0
+        for origin in self.locations:
+            for destination in self.locations:
                 if origin.pk == destination.pk:
                     continue
                 journeys = find_journeys(
                     origin.pk, destination.pk,
                     origin=origin, destination=destination,
-                    include_map=False,
+                    network=self.network, include_map=False,
                 )
                 checked_pairs += 1
                 for journey in journeys:
-                    self.assertEqual(len(journey['legs']), 1)
-                    self.assertEqual(journey['transfer_count'], 0)
-                    self.assertEqual(journey['transfers'], [])
-                    leg = journey['legs'][0]
+                    legs = journey['legs']
+                    self.assertIn(len(legs), (1, 2))
                     self.assertEqual(
-                        {leg['board_at'], leg['alight_at']},
-                        {origin.location_name, destination.location_name},
+                        journey['transfer_count'], len(legs) - 1,
                     )
+                    self.assertEqual(
+                        len(journey['transfers']), len(legs) - 1,
+                    )
+                    self.assertEqual(legs[0]['board_id'], origin.pk)
+                    self.assertEqual(
+                        legs[-1]['alight_id'], destination.pk,
+                    )
+                    for first, second in zip(legs, legs[1:]):
+                        self.assertEqual(
+                            first['alight_id'], second['board_id'],
+                        )
+                        self.assertEqual(
+                            first['transfer_after']['location_id'],
+                            first['alight_id'],
+                        )
+                        self.assertEqual(
+                            first['transfer_after']['location_name'],
+                            first['alight_at'],
+                        )
+                    self.assertTrue(journey['steps'])
+                    checked_legs += len(legs)
         self.assertGreater(checked_pairs, 0)
+        self.assertGreater(checked_legs, 0)
 
-    def test_unknown_fare_is_reported_never_faked(self):
-        locations = list(
-            Location.objects.filter(status='active').order_by('location_id')
+    def test_recorded_transfer_journeys_are_offered_and_priced(self):
+        """A recorded two-ride connection is returned and its fare is summed."""
+        found = None
+        for origin in self.locations:
+            for destination in self.locations:
+                if origin.pk == destination.pk:
+                    continue
+                journeys = find_journeys(
+                    origin.pk, destination.pk,
+                    origin=origin, destination=destination,
+                    network=self.network, include_map=False,
+                )
+                found = next(
+                    (j for j in journeys if len(j['legs']) == 2), None,
+                )
+                if found is not None:
+                    break
+            if found is not None:
+                break
+
+        self.assertIsNotNone(
+            found, 'the recorded transfer network produced no journey',
+        )
+        transfer = found['transfers'][0]
+        self.assertTrue(transfer['location_name'])
+        self.assertTrue(transfer['from_code'])
+        self.assertTrue(transfer['to_code'])
+        self.assertTrue(transfer['instructions'])
+
+        leg_fares = [leg['fare'] for leg in found['legs']]
+        self.assertTrue(all(fare is not None for fare in leg_fares))
+        self.assertEqual(
+            found['ride_fare'], sum(leg_fares, Decimal('0.00')),
+        )
+        self.assertEqual(
+            found['total_fare'],
+            found['ride_fare'] + found['transfer_fare'],
+        )
+        self.assertTrue(found['fare_known'])
+
+    def test_full_route_fare_equals_latest_saved_fare_row(self):
+        """The full-route price is exactly the administrator's saved total."""
+        current = latest_active_fares(
+            RouteFare.objects.filter(status=RouteFare.STATUS_ACTIVE),
         )
         checked = 0
-        for origin in locations:
-            for destination in locations:
+        for route in Route.objects.filter(status='active'):
+            if route.origin_id == route.destination_id:
+                continue
+            fare_record = current.get((route.pk, 1))
+            if fare_record is None:
+                continue
+            journeys = find_journeys(
+                route.origin_id, route.destination_id,
+                network=self.network, include_map=False,
+            )
+            matching = [
+                leg
+                for journey in journeys
+                for leg in journey['legs']
+                if leg['route_id'] == route.pk
+                and leg['board_id'] == route.origin_id
+                and leg['alight_id'] == route.destination_id
+            ]
+            self.assertTrue(
+                matching,
+                f'no full-route leg found for {route.route_code}',
+            )
+            for leg in matching:
+                self.assertEqual(
+                    leg['fare'], fare_record.total_estimated_fare,
+                    f'{route.route_code} full-route fare must use the '
+                    f'latest saved total',
+                )
+            checked += 1
+        self.assertGreater(checked, 0)
+
+    def test_travel_time_is_recalculated_from_distance(self):
+        """Minutes follow the ridden distance, not a fixed full-route time.
+
+        A full-route leg shows the route's recorded duration exactly; a
+        shorter origin/destination pair on the same route shows the
+        proportional share of that duration (never below one minute).
+        """
+        route = Route.objects.get(route_code='KAB-JP-01')
+        stops = list(
+            route.stops.select_related('location').order_by('stop_order')
+        )
+        origin = stops[0].location
+        destination = stops[-1].location
+        middle = stops[len(stops) // 2].location
+
+        def leg_between(first, second):
+            for journey in find_journeys(
+                first.pk, second.pk, network=self.network,
+                include_map=False,
+            ):
+                for leg in journey['legs']:
+                    if (
+                        leg['route_id'] == route.pk
+                        and leg['board_id'] == first.pk
+                        and leg['alight_id'] == second.pk
+                    ):
+                        return leg
+            return None
+
+        full = leg_between(origin, destination)
+        partial = leg_between(middle, destination)
+        self.assertIsNotNone(full)
+        self.assertIsNotNone(partial)
+        self.assertEqual(full['minutes'], route.estimated_travel_time)
+        self.assertLess(partial['distance_km'], full['distance_km'])
+        self.assertEqual(
+            partial['minutes'],
+            max(
+                1,
+                int(
+                    partial['distance_km'] / full['distance_km']
+                    * route.estimated_travel_time + 0.5
+                ),
+            ),
+        )
+        self.assertLess(partial['minutes'], full['minutes'])
+
+    def test_zigzag_stop_order_does_not_collapse_travel_time(self):
+        """An alphabetically ordered stop list is not a 380 km ride.
+
+        KAB-JP-07 stores its barangays alphabetically, so summing distances
+        in that order gives a path far longer than the route itself. The leg
+        must use the straight board-to-alight distance, which keeps its
+        minutes proportional instead of collapsing a 12 km hop to one minute.
+        """
+        route = Route.objects.get(route_code='KAB-JP-07')
+        origin = route.origin
+        destination = route.destination
+        journeys = find_journeys(
+            origin.pk, destination.pk, network=self.network,
+            include_map=False,
+        )
+        full = next(
+            leg
+            for journey in journeys
+            for leg in journey['legs']
+            if leg['route_id'] == route.pk
+            and leg['board_id'] == origin.pk
+            and leg['alight_id'] == destination.pk
+        )
+        straight_km = _haversine_km(
+            origin.latitude, origin.longitude,
+            destination.latitude, destination.longitude,
+        )
+        self.assertLess(full['distance_km'], straight_km + 0.5)
+        self.assertEqual(full['minutes'], route.estimated_travel_time)
+
+        stops = {
+            stop.location.location_name: stop.location
+            for stop in route.stops.select_related('location')
+        }
+        first, second = stops['Tagoc'], stops['Talubangi']
+        shortest = next(
+            leg
+            for journey in find_journeys(
+                first.pk, second.pk, network=self.network,
+                include_map=False,
+            )
+            for leg in journey['legs']
+            if leg['route_id'] == route.pk
+            and {leg['board_id'], leg['alight_id']} == {first.pk, second.pk}
+        )
+        self.assertLess(shortest['distance_km'], straight_km)
+        self.assertGreater(shortest['minutes'], 1)
+
+    def test_segment_minutes_are_distance_based(self):
+        """The segment-time helper scales with distance and never goes to 0."""
+        self.assertEqual(_segment_minutes(40, 10.0, 10.0), 40)
+        self.assertEqual(_segment_minutes(40, 5.0, 10.0), 20)
+        self.assertEqual(_segment_minutes(40, 1.0, 10.0), 4)
+        self.assertEqual(_segment_minutes(8, 0.1, 10.0), 1)
+        self.assertEqual(_segment_minutes(0, 5.0, 10.0), 0)
+        self.assertEqual(_segment_minutes(40, 5.0, 0.0), 40)
+
+    def test_segment_fares_stay_within_the_saved_bounds(self):
+        """A segment is never cheaper than minimum or dearer than the total."""
+        checked = 0
+        partial_cheaper = 0
+        for origin in self.locations:
+            for destination in self.locations:
                 if origin.pk == destination.pk:
                     continue
                 for journey in find_journeys(
                     origin.pk, destination.pk,
                     origin=origin, destination=destination,
-                    include_map=False,
+                    network=self.network, include_map=False,
+                ):
+                    for leg in journey['legs']:
+                        record = leg['fare_record']
+                        if record is None:
+                            self.assertIsNone(leg['fare'])
+                            continue
+                        checked += 1
+                        self.assertGreaterEqual(
+                            leg['fare'], record.minimum_fare,
+                        )
+                        self.assertLessEqual(
+                            leg['fare'], record.total_estimated_fare,
+                        )
+                        self.assertEqual(
+                            leg['fare'],
+                            leg['fare'].quantize(Decimal('0.01')),
+                        )
+                        if (
+                            leg['board_id'], leg['alight_id'],
+                        ) != (
+                            leg['route'].origin_id,
+                            leg['route'].destination_id,
+                        ) and leg['fare'] < record.total_estimated_fare:
+                            partial_cheaper += 1
+        self.assertGreater(checked, 0)
+        self.assertGreater(
+            partial_cheaper, 0,
+            'a shorter origin/destination pair must recalculate the fare',
+        )
+
+    def test_unknown_fare_is_reported_never_faked(self):
+        checked = 0
+        for origin in self.locations:
+            for destination in self.locations:
+                if origin.pk == destination.pk:
+                    continue
+                for journey in find_journeys(
+                    origin.pk, destination.pk,
+                    origin=origin, destination=destination,
+                    network=self.network, include_map=False,
                 ):
                     unknown_legs = [
                         leg['route'].route_code
@@ -77,26 +336,6 @@ class NetworkSearchTests(TestCase):
         # keeps that fact visible instead of letting a zero/other amount leak.
         self.assertGreater(checked, 0)
 
-    def test_every_journey_has_real_instructions(self):
-        origin = Location.objects.filter(status='active').order_by('pk').first()
-        destination = (
-            Location.objects.filter(status='active')
-            .exclude(pk=origin.pk)
-            .order_by('pk')
-            .first()
-        )
-        for journey in find_journeys(
-            origin.pk, destination.pk,
-            origin=origin, destination=destination,
-        ):
-            self.assertTrue(journey['legs'])
-            self.assertTrue(journey['steps'])
-            for transfer in journey['transfers']:
-                self.assertTrue(transfer['location_name'])
-                self.assertTrue(transfer['from_code'])
-                self.assertTrue(transfer['to_code'])
-                self.assertTrue(transfer['instructions'])
-
     def test_map_payload_uses_blue_ride_paths(self):
         origin = Location.objects.get(location_name='Bantayan', status='active')
         destination = Location.objects.get(location_name='Tapi', status='active')
@@ -110,3 +349,53 @@ class NetworkSearchTests(TestCase):
             self.assertTrue(map_payload['destination']['verified'])
             for leg in map_payload['legs']:
                 self.assertIn(leg['color'], LEG_COLORS)
+
+
+class FareSynchronizationTests(TestCase):
+    """The shared fare table is the single source for every commuter view."""
+
+    databases = {'sakayguide'}
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.network = _load_network()
+
+    def test_transport_options_use_the_latest_active_record(self):
+        current = latest_active_fares(
+            RouteFare.objects.filter(status=RouteFare.STATUS_ACTIVE),
+        )
+        options = transport_options()
+        self.assertGreater(len(options), 0)
+        for option in options:
+            record = current.get((option['route_id'], 1))
+            expected = record.total_estimated_fare if record else None
+            self.assertEqual(option['fare'], expected)
+
+    def test_expired_and_future_rows_are_ignored(self):
+        today = timezone.localdate()
+        active_today = RouteFare(
+            status=RouteFare.STATUS_ACTIVE,
+            effective_date=today,
+            total_estimated_fare=Decimal('15.00'),
+        )
+        future = RouteFare(
+            status=RouteFare.STATUS_ACTIVE,
+            effective_date=today + timedelta(days=1),
+            total_estimated_fare=Decimal('99.00'),
+        )
+        expired = RouteFare(
+            status=RouteFare.STATUS_ACTIVE,
+            effective_date=today - timedelta(days=10),
+            expiry_date=today - timedelta(days=1),
+            total_estimated_fare=Decimal('99.00'),
+        )
+        self.assertTrue(fare_is_current(active_today, today))
+        self.assertFalse(fare_is_current(future, today))
+        self.assertFalse(fare_is_current(expired, today))
+
+    def test_fare_version_is_a_stable_fingerprint(self):
+        first = fares_version()
+        second = fares_version()
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 16)
+        self.assertTrue(first.isalnum())

@@ -391,6 +391,16 @@ class RouteFareForm(BootstrapFormMixin, forms.ModelForm):
             'effective_date': 'Effective date',
             'expiry_date': 'Expiry date (optional)',
         }
+        help_texts = {
+            'minimum_fare': (
+                'The lowest amount charged for a short segment of this route. '
+                'Commuters never see less than this.'
+            ),
+            'total_estimated_fare': (
+                'The amount charged for the full route. Commuter dashboards '
+                'and journey results use this saved total.'
+            ),
+        }
         widgets = {
             'minimum_fare': forms.NumberInput(attrs={
                 'min': '0', 'step': '0.01',
@@ -472,6 +482,15 @@ class RouteFareForm(BootstrapFormMixin, forms.ModelForm):
         fare = super().save(commit=False)
         if self.locked_route is not None:
             fare.route = self.locked_route
+        # The minimum fare is a floor for every commuter display, so a total
+        # entered below it can never be shown as the route's fare. Lift the
+        # saved total instead of silently displaying less than the minimum.
+        if (
+            fare.total_estimated_fare is not None
+            and fare.minimum_fare is not None
+            and fare.total_estimated_fare < fare.minimum_fare
+        ):
+            fare.total_estimated_fare = fare.minimum_fare
         if commit:
             fare.save()
         return fare

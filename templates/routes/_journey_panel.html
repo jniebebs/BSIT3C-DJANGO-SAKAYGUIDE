@@ -3,7 +3,8 @@ Route Information Panel for the journey currently shown on the map.
 One panel is rendered per option; route-map.js unhides the one matching
 the selected ride card so the panel always matches the drawn map path.
 Each option shows: transportation type, regular fare, student/PWD fare,
-estimated travel time - one continuous direct ride, no stops, no transfer.
+estimated travel time and - when the journey changes vehicle - the recorded
+transfer point and instructions.
 {% endcomment %}
 <div class="sg-journey-panel"
      id="journey-panel-{{ journey_index }}">
@@ -15,7 +16,11 @@ estimated travel time - one continuous direct ride, no stops, no transfer.
         {{ journey.destination.location_name }}
       </div>
       <div class="text-muted small">
+        {% if journey.transfer_count %}
+        {{ journey.legs|length }} rides &middot; {{ journey.transfer_count }} transfer{{ journey.transfer_count|pluralize }}
+        {% else %}
         Direct ride
+        {% endif %}
         {% if journey.total_distance_km %}
         &middot; {{ journey.total_distance_km }} km along this route
         {% endif %}
@@ -89,7 +94,11 @@ estimated travel time - one continuous direct ride, no stops, no transfer.
         <span class="text-muted small">estimated travel time</span>
       </div>
       <div class="text-muted small">
+        {% if journey.transfer_count %}
+        {{ journey.legs|length }} rides with {{ journey.transfer_count }} recorded transfer{{ journey.transfer_count|pluralize }}
+        {% else %}
         one direct ride, no transfer
+        {% endif %}
       </div>
     </div>
     {% if journey.total_distance_km %}
@@ -135,6 +144,21 @@ estimated travel time - one continuous direct ride, no stops, no transfer.
       </div>
     </div>
   </div>
+  {% if leg.transfer_after %}
+  <div class="alert alert-warning py-2 px-3 mb-2 sg-transfer">
+    <div class="fw-semibold">
+      <i class="ti ti-transfer me-1"></i>
+      Transfer at {{ leg.transfer_after.location_name }}
+    </div>
+    <div class="small">{{ leg.transfer_after.instructions }}</div>
+    <div class="text-muted small mt-1">
+      Allow about {{ leg.transfer_after.time }} min
+      {% if leg.transfer_after.fare %}
+      &middot; additional fare &#8369;{{ leg.transfer_after.fare }}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
   {% endfor %}
 
   {# ---- Step-by-step instructions ---- #}
