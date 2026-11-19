@@ -72,6 +72,16 @@ DISCOUNT_FARE_TYPE_IDS = (2, 4)
 # the board and alight points instead of an impossible zig-zag total.
 MAX_ROUTE_DETOUR_RATIO = 4.0
 
+# Average in-city operating speeds, in kilometres per hour. Every commuter-
+# facing travel time is calculated from the travelled distance with this one
+# formula: minutes = (distance_km / speed_kmh) * 60. Bus and any other
+# registered mode use the jeepney speed until a mode-specific value is added.
+TRANSPORT_SPEEDS_KMH = {
+    'jeepney': 20.0,
+    'tricycle': 15.0,
+}
+DEFAULT_TRANSPORT_SPEED_KMH = 20.0
+
 # Distinct shades of blue, one per ride. The map draws every ride path in
 # blue; later rides use lighter/darker blues so a multi-ride journey stays
 # readable without leaving the blue family.
@@ -120,6 +130,53 @@ def _distance_km_for_stops(stops):
             )
         previous = coordinate
     return round(distance, 2)
+
+
+def _straight_line_km(first_location, second_location):
+    """Straight-line distance between two locations, or ``0.0`` when unknown."""
+    first = _coord(first_location)
+    second = _coord(second_location)
+    if first is None or second is None:
+        return 0.0
+    return round(_haversine_km(
+        first[0], first[1], second[0], second[1],
+    ), 2)
+
+
+def _use_straight_route_distance(along_km, straight_km):
+    """Whether a route's recorded stop order is too long to be its real path."""
+    return (
+        straight_km > 0
+        and along_km > straight_km * MAX_ROUTE_DETOUR_RATIO
+    )
+
+
+def transport_speed_kmh(transport_name):
+    """Average operating speed for a registered transportation mode."""
+    return TRANSPORT_SPEEDS_KMH.get(
+        (transport_name or '').strip().lower(),
+        DEFAULT_TRANSPORT_SPEED_KMH,
+    )
+
+
+def travel_minutes(distance_km, transport_name, fallback_minutes=0):
+    """Estimated riding time for a distance at the mode's average speed.
+
+    ``minutes = (distance_km / speed_kmh) * 60``, rounded to the nearest
+    minute and never below one minute. This is the single calculation used by
+    journey legs, transportation cards, destination suggestions, the fastest
+    indicator and the map, so every commuter display shows the same value.
+    When no distance is available (missing coordinates) the recorded fallback
+    is returned instead.
+    """
+    try:
+        distance = float(distance_km or 0)
+    except (TypeError, ValueError):
+        distance = 0.0
+    speed = transport_speed_kmh(transport_name)
+    if distance <= 0 or speed <= 0:
+        return int(fallback_minutes or 0)
+    return max(1, int(distance / speed * 60 + 0.5))
 
 
 def _endpoint_stop(location, order, time):
@@ -221,29 +278,6 @@ def fares_version():
     return hashlib.sha256('|'.join(parts).encode('utf-8')).hexdigest()[:16]
 
 
-def _segment_minutes(full_minutes, segment_distance_km, route_distance_km):
-    """Travel time for one travelled segment, proportional to its distance.
-
-    The route's recorded ``estimated_travel_time`` is the authoritative
-    full-route duration (a full-length segment always returns it unchanged).
-    A shorter segment takes the same share of that time as its share of the
-    route's measured distance, rounded to the nearest minute, and never less
-    than one minute. The time therefore follows the distance the commuter
-    actually travels on the recorded route.
-    """
-    full_minutes = int(full_minutes or 0)
-    if full_minutes <= 0:
-        return 0
-    if route_distance_km <= 0:
-        return full_minutes
-
-    ratio = max(float(segment_distance_km), 0.0) / float(route_distance_km)
-    if ratio >= 1:
-        return full_minutes
-    minutes = int(ratio * full_minutes + 0.5)
-    return max(1, minutes)
-
-
 def _segment_fare(fare_record, segment_distance_km, route_distance_km):
     """Fare for one travelled segment of a route, from its stored fare row.
 
@@ -292,7 +326,10 @@ def _load_network():
     """Load the active slice of the network into cheap in-memory indexes."""
     routes = {
         r.pk: r
-        for r in Route.objects.filter(status='active').select_related(
+        for r in Route.objects.filter(
+            status='active',
+            transport_type__status='active',
+        ).select_related(
             'transport_type', 'origin', 'destination'
         )
     }
@@ -359,19 +396,10 @@ def _load_network():
     route_straight_distances = {}
     straight_distance_routes = set()
     for route_id, route in routes.items():
-        origin_coord = _coord(route.origin)
-        destination_coord = _coord(route.destination)
-        straight_km = 0.0
-        if origin_coord and destination_coord:
-            straight_km = round(_haversine_km(
-                origin_coord[0], origin_coord[1],
-                destination_coord[0], destination_coord[1],
-            ), 2)
+        straight_km = _straight_line_km(route.origin, route.destination)
         route_straight_distances[route_id] = straight_km
-        along_km = route_distances.get(route_id, 0.0)
-        if (
-            straight_km > 0
-            and along_km > straight_km * MAX_ROUTE_DETOUR_RATIO
+        if _use_straight_route_distance(
+            route_distances.get(route_id, 0.0), straight_km,
         ):
             straight_distance_routes.add(route_id)
 
@@ -425,14 +453,12 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
     the journey payload: the commuter only sees the starting point, the
     destination and one continuous ride.
 
-    Travel time is based on the distance of the travelled segment: the
-    route's recorded full-route ``estimated_travel_time`` is apportioned
-    across its measured full-route distance, so boarding or alighting at a
-    different stop recalculates the minutes. A stop list recorded in an order
-    that does not follow the vehicle's path is measured straight between the
-    board and alight points, so an alphabetical barangay list cannot collapse
-    a 12 km hop to one minute. When no coordinates are recorded the
-    cumulative stop times are used as a fallback.
+    Travel time uses one formula for every display: the travelled segment's
+    actual distance divided by the mode's average speed (Jeepney 20 km/h,
+    Tricycle 15 km/h). A stop list recorded in an order that does not follow
+    the vehicle's path is measured straight between the board and alight
+    points. When no coordinates are recorded the recorded stop times are used
+    as a fallback.
 
     The fare is the segment's share of the latest active full-route fare, so
     changing the starting point or destination recalculates the amount while
@@ -456,31 +482,24 @@ def _make_leg(route_id, from_location_id, to_location_id, ctx):
         # The recorded stop order zig-zags (it is not the travel path), so
         # the segment is measured directly between the two points the
         # commuter boards and alights at.
-        board_coord = _coord(start['location'])
-        alight_coord = _coord(end['location'])
-        if board_coord and alight_coord:
-            distance_km = round(_haversine_km(
-                board_coord[0], board_coord[1],
-                alight_coord[0], alight_coord[1],
-            ), 2)
-        else:
-            distance_km = 0.0
+        distance_km = _straight_line_km(start['location'], end['location'])
         full_distance_km = route_straight_distances.get(route_id, 0.0)
     else:
         distance_km = _distance_km_for_stops(segment)
         full_distance_km = route_distances.get(route_id, 0.0)
-    full_minutes = routes[route_id].estimated_travel_time or 0
+    route = routes[route_id]
 
-    # Time follows distance: spread the recorded full-route duration over the
-    # measured full-route distance and charge the segment its proportional
-    # share. A full-length segment returns the route's saved duration exactly.
-    minutes = _segment_minutes(full_minutes, distance_km, full_distance_km)
-    if minutes <= 0:
-        # No recorded time or no verified coordinates: fall back to the
-        # recorded cumulative stop times, then to the route's estimate.
-        minutes = abs(end['time'] - start['time'])
-    if minutes <= 0:
-        minutes = full_minutes
+    # The one km-based estimate every commuter display reads: distance
+    # divided by the mode's average speed. When coordinates are missing the
+    # recorded cumulative stop times (then the saved route estimate) stand in.
+    minutes = travel_minutes(
+        distance_km,
+        route.transport_type.transport_name,
+        fallback_minutes=(
+            abs(end['time'] - start['time'])
+            or route.estimated_travel_time
+        ),
+    )
 
     fare_record = fares.get(route_id)
     # A route without an active regular fare record must never be shown with
@@ -967,8 +986,8 @@ def sort_journeys(journeys, sort='fare'):
     return sorted(journeys, key=key)
 
 
-# The three local transport modes Find My Route presents, in display order.
-JOURNEY_MODE_DISPLAY = ('Jeepney', 'Bus', 'Tricycle')
+# The two local transport modes Find My Route presents, in display order.
+JOURNEY_MODE_DISPLAY = ('Jeepney', 'Tricycle')
 
 
 def _journey_modes(journey):
@@ -1144,6 +1163,7 @@ def map_locations():
             RouteStop.objects.filter(
                 location_id__in=by_id.keys(),
                 route__status='active',
+                route__transport_type__status='active',
             )
             .select_related('route__transport_type')
             .order_by('route__route_code')
@@ -1180,7 +1200,7 @@ def transport_options():
     the Google Maps markers and route directions all come from one source.
     """
     routes = (
-        Route.objects.filter(status='active')
+        Route.objects.filter(status='active', transport_type__status='active')
         .select_related('transport_type', 'origin', 'destination')
         .prefetch_related('stops__location', 'fares__fare_type')
         .order_by('transport_type__transport_name', 'route_code')
@@ -1202,7 +1222,15 @@ def transport_options():
         )
         discounted = student_fare or pwd_fare
 
-        distance = route_distance_km(stops)
+        # The card's distance and minutes use the same measured route the
+        # journey legs use, including the straight-line fallback for a stop
+        # list that is not recorded in travel order.
+        along_distance = route_distance_km(stops)
+        straight_distance = _straight_line_km(route.origin, route.destination)
+        if _use_straight_route_distance(along_distance, straight_distance):
+            distance = straight_distance
+        else:
+            distance = along_distance
         stop_location_ids = sorted({
             stop.location_id for stop in stops
         } | {route.origin_id, route.destination_id})
@@ -1225,7 +1253,11 @@ def transport_options():
                 stops[-1].location.location_name if stops
                 else route.destination.location_name
             ),
-            'minutes': route.estimated_travel_time,
+            'minutes': travel_minutes(
+                distance,
+                route.transport_type.transport_name,
+                fallback_minutes=route.estimated_travel_time,
+            ),
             'stops_count': len(stops),
             'distance_km': distance,
             'fare': regular_fare.total_estimated_fare if regular_fare else None,
@@ -1265,6 +1297,7 @@ def popular_destinations(limit=6):
     if len(result) < limit:
         destination_ids = Route.objects.filter(
             status='active',
+            transport_type__status='active',
             destination__location_type=BARANGAY_LOCATION_TYPE,
         ).values_list('destination_id', flat=True)
         for location_id in destination_ids:

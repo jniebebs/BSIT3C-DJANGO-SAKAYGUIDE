@@ -231,7 +231,7 @@ Stores terminals, landmarks, establishments, hospitals, schools, markets, govern
 - `location_type` is a `VARCHAR(50)` rather than an ENUM so administrators can add new categories without changing the schema. Recommended values are documented in the column comment.
 
 ### Table 5: `transportation_types`
-Stores Jeepney, Bus, Tricycle, Multicab, and similar modes.
+Stores Jeepney and Tricycle, the two supported local modes. The Bus and SQLLAB SHUTTLE records still exist in this table but were set to `status='inactive'` in November 2026 so only Jeepney and Tricycle are offered.
 
 - **Primary key:** `transport_type_id`
 - **Unique:** `transport_name`.
@@ -870,7 +870,7 @@ mapped by `mysite/routers.py`):
 | Stops / intermediate stops / transfer points | `route_stops` (`is_transfer_point`)      |
 | Fares                   | `route_fares` (regular fare type = 1), `fare_types`   |
 | Transfers               | `route_transfers`                                     |
-| Transport modes         | `transportation_types` (Jeepney, Bus, Tricycle)        |
+| Transport modes         | `transportation_types` (Jeepney, Tricycle)             |
 | Search history / saved routes / audit | `search_history`, `saved_routes`, `admin_activity_logs` |
 
 Synchronization rules enforced by the code:

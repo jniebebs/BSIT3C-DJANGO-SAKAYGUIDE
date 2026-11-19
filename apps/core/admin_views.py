@@ -58,12 +58,11 @@ User = get_user_model()
 PAGE_SIZE = 15
 TRANSIT_PAGE_SIZE = 20
 
-# The three local transport modes SakayGuide manages: Jeepney covers the
-# fixed routes, Bus covers the longer inter-barangay and highway runs, and
-# Tricycle covers the short service areas around the barangays. Other
-# records that already exist in the database stay visible and editable, but
-# these are the ones the management screens put first.
-SUPPORTED_TRANSPORT_MODES = ['Jeepney', 'Tricycle', 'Bus']
+# The two local transport modes SakayGuide manages: Jeepney covers the
+# fixed routes and Tricycle covers the short service areas around the
+# barangays. Other records that already exist in the database stay visible
+# and editable, but these are the ones the management screens put first.
+SUPPORTED_TRANSPORT_MODES = ['Jeepney', 'Tricycle']
 
 
 # ---------------------------------------------------------------------------

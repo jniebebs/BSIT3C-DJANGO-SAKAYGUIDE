@@ -2,7 +2,7 @@
 {% load management_tags %}
 
 {% block page_title %}Routes{% endblock %}
-{% block page_subtitle %}Jeepney, bus and tricycle routes with boarding points, fares and transfers.{% endblock %}
+{% block page_subtitle %}Jeepney and tricycle routes with boarding points, fares and transfers.{% endblock %}
 
 {% block page_actions %}
 <a href="{% url 'management_map' %}" class="btn btn-outline-primary">
@@ -48,7 +48,7 @@
   </div>
 </div>
 
-{# Jeepney, Bus and Tricycle are the three supported local modes. #}
+{# Jeepney and Tricycle are the supported local modes; the Bus filter is kept for the retired records. #}
 <div class="mgmt-segment mb-3">
   <a href="{% url 'management_routes' %}"
      class="{% if not mode %}active{% endif %}">

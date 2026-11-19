@@ -16,12 +16,13 @@ from .services import (
     LEG_COLORS,
     _haversine_km,
     _load_network,
-    _segment_minutes,
+    destination_summaries,
     fare_is_current,
     fares_version,
     find_journeys,
     latest_active_fares,
     transport_options,
+    travel_minutes,
 )
 
 
@@ -66,6 +67,25 @@ class NetworkSearchTests(TestCase):
                     self.assertEqual(legs[0]['board_id'], origin.pk)
                     self.assertEqual(
                         legs[-1]['alight_id'], destination.pk,
+                    )
+                    for leg in legs:
+                        self.assertEqual(
+                            leg['minutes'],
+                            travel_minutes(
+                                leg['distance_km'],
+                                leg['route'].transport_type.transport_name,
+                                fallback_minutes=leg['minutes'],
+                            ),
+                            f"{leg['route'].route_code}: minutes must "
+                            f"equal the km-based estimate for its distance",
+                        )
+                    self.assertEqual(
+                        journey['ride_time'],
+                        sum(leg['minutes'] for leg in legs),
+                    )
+                    self.assertEqual(
+                        journey['total_time'],
+                        journey['ride_time'] + journey['transfer_time'],
                     )
                     for first, second in zip(legs, legs[1:]):
                         self.assertEqual(
@@ -164,9 +184,9 @@ class NetworkSearchTests(TestCase):
     def test_travel_time_is_recalculated_from_distance(self):
         """Minutes follow the ridden distance, not a fixed full-route time.
 
-        A full-route leg shows the route's recorded duration exactly; a
-        shorter origin/destination pair on the same route shows the
-        proportional share of that duration (never below one minute).
+        A shorter origin/destination pair on the same route takes less time
+        than the full ride, and every leg uses the one km-based formula the
+        commuter pages display.
         """
         route = Route.objects.get(route_code='KAB-JP-01')
         stops = list(
@@ -194,17 +214,14 @@ class NetworkSearchTests(TestCase):
         partial = leg_between(middle, destination)
         self.assertIsNotNone(full)
         self.assertIsNotNone(partial)
-        self.assertEqual(full['minutes'], route.estimated_travel_time)
+        self.assertEqual(
+            full['minutes'],
+            travel_minutes(full['distance_km'], 'Jeepney'),
+        )
         self.assertLess(partial['distance_km'], full['distance_km'])
         self.assertEqual(
             partial['minutes'],
-            max(
-                1,
-                int(
-                    partial['distance_km'] / full['distance_km']
-                    * route.estimated_travel_time + 0.5
-                ),
-            ),
+            travel_minutes(partial['distance_km'], 'Jeepney'),
         )
         self.assertLess(partial['minutes'], full['minutes'])
 
@@ -236,7 +253,10 @@ class NetworkSearchTests(TestCase):
             destination.latitude, destination.longitude,
         )
         self.assertLess(full['distance_km'], straight_km + 0.5)
-        self.assertEqual(full['minutes'], route.estimated_travel_time)
+        self.assertEqual(
+            full['minutes'],
+            travel_minutes(full['distance_km'], 'Jeepney'),
+        )
 
         stops = {
             stop.location.location_name: stop.location
@@ -255,15 +275,30 @@ class NetworkSearchTests(TestCase):
         )
         self.assertLess(shortest['distance_km'], straight_km)
         self.assertGreater(shortest['minutes'], 1)
+        self.assertEqual(
+            shortest['minutes'],
+            travel_minutes(shortest['distance_km'], 'Jeepney'),
+        )
 
-    def test_segment_minutes_are_distance_based(self):
-        """The segment-time helper scales with distance and never goes to 0."""
-        self.assertEqual(_segment_minutes(40, 10.0, 10.0), 40)
-        self.assertEqual(_segment_minutes(40, 5.0, 10.0), 20)
-        self.assertEqual(_segment_minutes(40, 1.0, 10.0), 4)
-        self.assertEqual(_segment_minutes(8, 0.1, 10.0), 1)
-        self.assertEqual(_segment_minutes(0, 5.0, 10.0), 0)
-        self.assertEqual(_segment_minutes(40, 5.0, 0.0), 40)
+    def test_travel_minutes_follow_transport_speed(self):
+        """The shared formula: Jeepney 20 km/h, Tricycle 15 km/h.
+
+        This is the single calculation behind the dropdown annotation, the
+        results summary, the fastest badge, the option cards, the route
+        details panel and the map label, so no section can disagree.
+        """
+        self.assertEqual(travel_minutes(10.0, 'Jeepney'), 30)
+        self.assertEqual(travel_minutes(10.0, 'Tricycle'), 40)
+        self.assertEqual(travel_minutes(7.5, 'Tricycle'), 30)
+        self.assertEqual(travel_minutes(0.28, 'Tricycle'), 1)
+        self.assertEqual(travel_minutes(12.56, 'Jeepney'), 38)
+        # Unrecognised registered modes fall back to the jeepney speed.
+        self.assertEqual(travel_minutes(10.0, 'SQLLAB SHUTTLE'), 30)
+        # No known distance: the recorded estimate stands in untouched.
+        self.assertEqual(travel_minutes(0.0, 'Jeepney', 12), 12)
+        self.assertEqual(travel_minutes(0.0, 'Jeepney'), 0)
+        # A long, slow leg still rounds to the nearest minute, never zero.
+        self.assertEqual(travel_minutes(0.1, 'Tricycle'), 1)
 
     def test_segment_fares_stay_within_the_saved_bounds(self):
         """A segment is never cheaper than minimum or dearer than the total."""
@@ -347,8 +382,30 @@ class NetworkSearchTests(TestCase):
             self.assertTrue(map_payload['journey_available'])
             self.assertTrue(map_payload['origin']['verified'])
             self.assertTrue(map_payload['destination']['verified'])
+            self.assertEqual(
+                map_payload['total_time'], journey['total_time'],
+                'the map label must read the same journey total',
+            )
             for leg in map_payload['legs']:
                 self.assertIn(leg['color'], LEG_COLORS)
+
+    def test_destination_summaries_report_km_based_times(self):
+        """Dropdown time comes from the same journeys as the results page.
+
+        The fare/time annotation shown next to each destination suggestion
+        is built from the same km-based journey totals; the quickest option
+        is never slower than the fare-wise cheapest pick.
+        """
+        origin = self.locations[0]
+        summaries = destination_summaries(origin.pk, origin=origin)
+        reachable = [s for s in summaries if s['has_route']]
+        self.assertTrue(reachable)
+        for summary in reachable:
+            self.assertGreaterEqual(summary['minutes'], 1)
+            self.assertGreaterEqual(summary['fastest_minutes'], 1)
+            self.assertLessEqual(
+                summary['fastest_minutes'], summary['minutes'],
+            )
 
 
 class FareSynchronizationTests(TestCase):
@@ -370,6 +427,16 @@ class FareSynchronizationTests(TestCase):
             record = current.get((option['route_id'], 1))
             expected = record.total_estimated_fare if record else None
             self.assertEqual(option['fare'], expected)
+            self.assertEqual(
+                option['minutes'],
+                travel_minutes(
+                    option['distance_km'],
+                    option['transport_name'],
+                    fallback_minutes=option['minutes'],
+                ),
+                f"{option['route_code']}: card time must equal the "
+                f"km-based estimate",
+            )
 
     def test_expired_and_future_rows_are_ignored(self):
         today = timezone.localdate()
