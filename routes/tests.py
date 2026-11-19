@@ -12,11 +12,18 @@ from .services import LEG_COLORS, find_journeys
 class NetworkSearchTests(TestCase):
     databases = {'sakayguide'}
 
-    def test_every_active_pair_is_searchable(self):
+    def test_every_journey_is_a_direct_ride(self):
+        """Find My Route offers single continuous rides only.
+
+        Every journey returned for any active pair must be one direct ride:
+        a single leg, no transfer, and the leg starts and ends at the two
+        searched endpoints. Pairs no recorded route serves in one ride
+        simply return no journeys - nothing is invented.
+        """
         locations = list(
             Location.objects.filter(status='active').order_by('location_id')
         )
-        missing = []
+        checked_pairs = 0
         for origin in locations:
             for destination in locations:
                 if origin.pk == destination.pk:
@@ -26,11 +33,17 @@ class NetworkSearchTests(TestCase):
                     origin=origin, destination=destination,
                     include_map=False,
                 )
-                if not journeys:
-                    missing.append(
-                        (origin.location_name, destination.location_name)
+                checked_pairs += 1
+                for journey in journeys:
+                    self.assertEqual(len(journey['legs']), 1)
+                    self.assertEqual(journey['transfer_count'], 0)
+                    self.assertEqual(journey['transfers'], [])
+                    leg = journey['legs'][0]
+                    self.assertEqual(
+                        {leg['board_at'], leg['alight_at']},
+                        {origin.location_name, destination.location_name},
                     )
-        self.assertEqual(missing, [])
+        self.assertGreater(checked_pairs, 0)
 
     def test_unknown_fare_is_reported_never_faked(self):
         locations = list(

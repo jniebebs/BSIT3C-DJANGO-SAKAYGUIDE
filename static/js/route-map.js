@@ -5,10 +5,13 @@
 
    - green pin  = starting point          (payload.origin)
    - red pin    = destination             (payload.destination)
-   - blue pins  = intermediate stops      (payload.legs[n].stops)
-   - orange pin = transfer locations     (payload.transfer_points)
-   - small violet dots = landmarks        (payload.landmarks)
-   - solid BLUE line per ride            = real road geometry
+   - ONE continuous solid BLUE line        = real road geometry
+     fetched from the keyless OSRM demo server
+     (router.project-osrm.org) and drawn between the two endpoints.
+
+   No intermediate stop pins, no transfer pins, no landmark dots and no
+   nearby-location dots are ever drawn: only the two endpoint pins and
+   the ride path.
 
    P R O G R E S S I V E   R E N D E R I N G :
    markers are drawn IMMEDIATELY from database coordinates, so the map is
@@ -67,9 +70,6 @@
   var TILE_ERROR_LIMIT = 6;
 
   var journeyData = [];
-  var mapLocations = [];
-  var mapLocationCoords = [];
-  var locationMarkers = {};
   var map = null;
   var lineLayer = null;   /* route lines (upgraded in background)      */
   var markerLayer = null; /* green/red/blue/orange pins + landmark dots */
@@ -90,13 +90,6 @@
       journeyData = JSON.parse((dataEl && dataEl.textContent) || '[]');
     } catch (error) {
       journeyData = [];
-    }
-
-    var locationsEl = document.getElementById('kabankalan-locations');
-    try {
-      mapLocations = JSON.parse((locationsEl && locationsEl.textContent) || '[]');
-    } catch (error) {
-      mapLocations = [];
     }
   }
 
@@ -127,59 +120,6 @@
       '<span class="sg-popup-dot" style="background:' + color + '"></span>' +
       '<strong>' + escapeHtml(label) + '</strong>'
     );
-  }
-
-  function markerKey(name, lat, lng) {
-    return name + '|' + lat.toFixed(6) + '|' + lng.toFixed(6);
-  }
-
-  /* Every recorded Kabankalan City location, drawn as a small dot under
-     the journey-specific pins. */
-  function addAllLocationMarkers() {
-    mapLocationCoords = [];
-    locationMarkers = {};
-
-    mapLocations.forEach(function (location) {
-      if (location.latitude === null || location.latitude === undefined ||
-          location.longitude === null || location.longitude === undefined) {
-        return;
-      }
-      var active = !location.status || location.status === 'active';
-      var isBarangay = location.location_type === 'barangay';
-      var markerColor = active
-        ? (isBarangay ? '#7c3aed' : '#64748b')
-        : '#adb5bd';
-      var latlng = [Number(location.latitude), Number(location.longitude)];
-      mapLocationCoords.push(latlng);
-
-      var marker = L.circleMarker(latlng, {
-        radius: isBarangay ? 6 : 5,
-        color: '#ffffff',
-        weight: 2,
-        fillColor: markerColor,
-        fillOpacity: 0.9,
-      });
-      marker
-        .bindPopup(
-          popupTitle(location.location_name, markerColor) +
-          '<div class="sg-popup-sub">' +
-          escapeHtml(location.location_type) + ' &middot; ' +
-          escapeHtml(location.barangay__barangay_name || '') + '</div>' +
-          (location.address
-            ? '<div class="sg-popup-line">' +
-              escapeHtml(location.address) + '</div>'
-            : '') +
-          (active ? '' :
-            '<div class="sg-popup-line">Inactive location</div>') +
-          '</div>'
-        )
-        .bindTooltip(location.location_name, {
-          direction: 'top',
-          offset: [0, -6],
-        })
-        .addTo(markerLayer);
-      locationMarkers[String(location.location_id)] = marker;
-    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -243,13 +183,17 @@
   }
 
   function drawLegs(cfg) {
-    var pending = [];
-    cfg.legs.forEach(function (leg) {
-      pending.push(roadPathFor(leg.stops).then(function (roadLatLngs) {
-        return { leg: leg, road: roadLatLngs };
-      }));
+    /* One continuous ride path from the starting point to the destination. */
+    if (!cfg.origin || !cfg.destination ||
+        cfg.origin.lat === null || cfg.origin.lat === undefined ||
+        cfg.origin.lng === null || cfg.origin.lng === undefined ||
+        cfg.destination.lat === null || cfg.destination.lat === undefined ||
+        cfg.destination.lng === null || cfg.destination.lng === undefined) {
+      return Promise.resolve([{ leg: (cfg.legs || [{}])[0], road: null }]);
+    }
+    return roadPathFor([cfg.origin, cfg.destination]).then(function (roadLatLngs) {
+      return [{ leg: (cfg.legs || [{}])[0], road: roadLatLngs }];
     });
-    return Promise.all(pending);
   }
 
   /* ------------------------------------------------------------------ */
@@ -279,82 +223,9 @@
      straight-line fallback between stops. */
 
   function addMarkers(cfg) {
-    var seen = {};
-
-    /* Intermediate stops first (blue), then transfers (orange), so the
-       orange transfer markers sit on top at shared locations. */
-    cfg.legs.forEach(function (leg) {
-      leg.stops.forEach(function (stop) {
-        if (stop.lat === null || stop.lat === undefined) { return; }
-        var key = 'stop' + markerKey(stop.name, stop.lat, stop.lng);
-        if (seen[key]) { return; }
-        if (stop.role !== 'intermediate') { return; }
-        seen[key] = true;
-        L.marker([stop.lat, stop.lng], { icon: pinIcon('#1a7fd4') })
-          .bindPopup(
-            popupTitle(stop.name, '#1a7fd4') +
-            '<div class="sg-popup-sub">Stop on ride ' + (leg.leg_index + 1) +
-            ' (' + escapeHtml(leg.route_code) + ')</div>' +
-            '<div class="sg-popup-line">About ' + stop.time +
-            ' min from the route start</div></div>'
-          )
-          .addTo(markerLayer);
-      });
-    });
-
-    (cfg.transfer_points || []).forEach(function (transfer) {
-      if (transfer.lat === null || transfer.lat === undefined) { return; }
-      var key = 'tr' + markerKey(transfer.name, transfer.lat, transfer.lng);
-      if (seen[key]) { return; }
-      seen[key] = true;
-      L.marker([transfer.lat, transfer.lng], { icon: pinIcon('#f0932b') })
-        .bindPopup(
-          popupTitle(transfer.name, '#f0932b') +
-          '<div class="sg-popup-sub">Transfer point (' +
-          escapeHtml(transfer.from_code) + ' &rarr; ' +
-          escapeHtml(transfer.to_code) + ')</div>' +
-          '<div class="sg-popup-line">' +
-          escapeHtml(transfer.instructions) + '</div>' +
-          (transfer.fare_recorded
-            ? '<div class="sg-popup-line">Additional fare: PHP ' +
-              escapeHtml(transfer.fare) + '</div>'
-            : '<div class="sg-popup-line">No separate transfer fare recorded</div>') +
-          '</div>'
-        )
-        .addTo(markerLayer);
-    });
-
-    (cfg.landmarks || []).forEach(function (landmark) {
-      if (landmark.lat === null || landmark.lat === undefined) { return; }
-      var key = 'lm' + markerKey(landmark.name, landmark.lat, landmark.lng);
-      if (seen[key]) { return; }
-      seen[key] = true;
-      L.circleMarker([landmark.lat, landmark.lng], {
-        radius: 6,
-        color: '#ffffff',
-        weight: 2,
-        fillColor: '#8b5cf6',
-        fillOpacity: 0.9,
-      })
-        .bindPopup(
-          popupTitle(landmark.name, '#8b5cf6') +
-          '<div class="sg-popup-sub">Landmark on ' +
-          escapeHtml(landmark.route_code) + '</div>' +
-          (landmark.description
-            ? '<div class="sg-popup-line">' +
-              escapeHtml(landmark.description) + '</div>'
-            : '') +
-          (landmark.distance
-            ? '<div class="sg-popup-line">~' + landmark.distance +
-              ' km from the route origin</div>'
-            : '') +
-          '</div>'
-        )
-        .addTo(markerLayer);
-    });
-
-    /* Starting point (green) and destination (red) added last so they are
-       never hidden underneath other markers that share the same place. */
+    /* Only two pins ever appear on the journey map: the starting point
+       (green) and the destination (red). No intermediate stops, transfer
+       points or landmarks. */
     if (cfg.origin && cfg.origin.verified) {
       L.marker([cfg.origin.lat, cfg.origin.lng], { icon: pinIcon('#2e8540') })
         .bindPopup(
@@ -391,12 +262,9 @@
   /* ------------------------------------------------------------------ */
   /* Markers only are added here. The blue ride path is drawn by
      upgradeToRoadPaths once the routing service answers, so the map is
-     never tempted to draw a straight line between stops. */
+     never tempted to draw a straight line between the endpoints. */
   function drawInstantPreview(cfg) {
-    /* First pass - purely local, no network: all Kabankalan City
-       locations and every journey marker. The map is populated right
-       away; the road line follows. */
-    addAllLocationMarkers();
+    /* First pass - purely local, no network: the two endpoint pins. */
     addMarkers(cfg);
     roadPending = true;
     renderNotes(cfg);
@@ -427,13 +295,7 @@
   }
 
   function focusMap(cfg) {
-    if (!cfg.journey_available && mapLocationCoords.length > 1) {
-      /* No journey: show every recorded Kabankalan City location. */
-      map.fitBounds(L.latLngBounds(mapLocationCoords), {
-        padding: [28, 28],
-        maxZoom: 13,
-      });
-    } else if (cfg.bounds) {
+    if (cfg.bounds) {
       map.fitBounds(L.latLngBounds(cfg.bounds), {
         padding: [28, 28],
         maxZoom: 15,
@@ -459,36 +321,34 @@
         timeText = ' \u00b7 est. ' + cfg.total_time + ' min';
       }
       label.textContent = cfg.journey_available
-        ? cfg.label + ' \u00b7 ' + cfg.rides +
-          ' ride' + (cfg.rides === 1 ? '' : 's') + timeText
-        : cfg.label + ' \u00b7 no journey found';
+        ? cfg.label + ' \u00b7 direct ride' + timeText
+        : cfg.label + ' \u00b7 no direct route found';
     }
     if (!notes) { return; }
 
     var html = '';
     if (cfg.journey_available) {
       if (drewStreetGeometry) {
-        html += '<div><i class="ti ti-road me-1"></i>Solid <strong>blue</strong> ' +
-          'lines follow the real road geometry for the recorded stops ' +
-          '(OSRM routing service, no API key).</div>';
+        html += '<div><i class="ti ti-road me-1"></i>The solid <strong>blue</strong> ' +
+          'line follows the real road geometry from your starting point ' +
+          'straight to your destination (OSRM routing service, no API key).</div>';
       }
       if (!drewStreetGeometry && !roadPending) {
         html += '<div><i class="ti ti-info-circle me-1"></i>The road path ' +
           'service could not return a path for this journey, so no line is ' +
-          'drawn - a straight line between stops is never shown.</div>';
+          'drawn - a straight line is never shown.</div>';
       }
       if (roadPending) {
         html += '<div><i class="ti ti-loader-2 me-1"></i>The ride path is ' +
           'being fetched from the routing service; the <strong>blue road ' +
-          'line</strong> will appear when it arrives. The pins shown are the ' +
-          'exact recorded stops.</div>';
+          'line</strong> will appear when it arrives. Only the two endpoint ' +
+          'pins are shown.</div>';
       }
     } else {
       html +=
-        '<div><i class="ti ti-map-pin me-1"></i>All ' +
-        mapLocationCoords.length + ' recorded Kabankalan City locations are ' +
-        'pinned. The starting point and destination are highlighted - no ' +
-        'connecting line is drawn, and none is invented.</div>';
+        '<div><i class="ti ti-map-pin me-1"></i>No recorded route passes ' +
+        'both points in a single ride. Only the starting point and ' +
+        'destination are pinned - no line is drawn, and none is invented.</div>';
     }
     if (cfg.unverified_names && cfg.unverified_names.length) {
       html += '<div class="mt-1"><i class="ti ti-map-pin-off me-1"></i>' +
@@ -660,22 +520,6 @@
     });
   }
 
-  function bindLocationList() {
-    var items = document.querySelectorAll('[data-map-location-id]');
-    Array.prototype.forEach.call(items, function (item) {
-      item.addEventListener('click', function () {
-        var marker = locationMarkers[String(item.dataset.mapLocationId)];
-        if (!marker || !map) { return; }
-
-        Array.prototype.forEach.call(items, function (other) {
-          other.classList.toggle('is-active', other === item);
-        });
-        map.setView(marker.getLatLng(), 16, { animate: true });
-        marker.openPopup();
-      });
-    });
-  }
-
   function init() {
     readEmbeddedData();
     var container = document.getElementById('sg-journey-map');
@@ -695,10 +539,9 @@
         '<div class="sg-map-fallback">' +
         '<i class="ti ti-map-pin-off"></i> The interactive map needs an ' +
         'internet connection to load Leaflet and the OpenStreetMap tiles. ' +
-        'The stops, fares, landmarks and travel times beside the map are ' +
+        'The fares and travel times beside the map are ' +
         'still accurate for this search.</div>';
       bindSelection();
-      bindLocationList();
       document.querySelectorAll('.sg-journey-panel').forEach(function (panel) {
         panel.hidden = panel.id !== 'journey-panel-0';
       });
@@ -713,7 +556,6 @@
       });
     }
     bindSelection();
-    bindLocationList();
 
     /* Leaflet measures the container once it becomes visible. */
     window.setTimeout(function () {

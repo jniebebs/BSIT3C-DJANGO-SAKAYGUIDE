@@ -1,8 +1,9 @@
 {% comment %}
-Detailed Route Information Panel for the journey currently shown on the
-map. One panel is rendered per journey option; route-map.js unhides the
-one matching the selected journey card so the panel always matches the
-drawn map path.
+Route Information Panel for the journey currently shown on the map.
+One panel is rendered per option; route-map.js unhides the one matching
+the selected ride card so the panel always matches the drawn map path.
+Each option shows: transportation type, regular fare, student/PWD fare,
+estimated travel time - one continuous direct ride, no stops, no transfer.
 {% endcomment %}
 <div class="sg-journey-panel"
      id="journey-panel-{{ journey_index }}">
@@ -14,16 +15,17 @@ drawn map path.
         {{ journey.destination.location_name }}
       </div>
       <div class="text-muted small">
-        {{ journey.transfers|length }} transfer{{ journey.transfers|length|pluralize }}
-        &middot; {{ journey.legs|length }} ride{{ journey.legs|length|pluralize }}
+        Direct ride
         {% if journey.total_distance_km %}
-        &middot; {{ journey.total_distance_km }} km total
+        &middot; {{ journey.total_distance_km }} km along this route
         {% endif %}
       </div>
       {% if journey.transport_names %}
       <div class="d-flex flex-wrap gap-1 mt-1">
         {% for mode in journey.transport_names %}
-        <span class="badge text-bg-secondary">{{ mode }}</span>
+        <span class="badge text-bg-blue">
+          <i class="ti ti-bus me-1"></i>{{ mode }}
+        </span>
         {% endfor %}
       </div>
       {% endif %}
@@ -55,33 +57,29 @@ drawn map path.
   <div class="sg-panel-summary mb-3">
     <div class="sg-panel-summary-row">
       {% if journey.total_fare is not None %}
-      <div><i class="ti ti-cash me-1"></i><strong>&#8369;{{ journey.total_fare }}</strong></div>
+      <div><i class="ti ti-cash me-1"></i><strong>Regular &#8369;{{ journey.total_fare }}</strong></div>
       <div class="text-muted small">
-        rides {% if journey.ride_fare is not None %}&#8369;{{ journey.ride_fare }}{% else %}not recorded{% endif %}{% if journey.transfer_fare %} + transfer &#8369;{{ journey.transfer_fare }}{% endif %}
+        Regular &middot; rides {% if journey.ride_fare is not None %}&#8369;{{ journey.ride_fare }}{% else %}not recorded{% endif %}
       </div>
       {% else %}
-      <div><i class="ti ti-cash me-1"></i><strong>Fare not recorded</strong></div>
+      <div><i class="ti ti-cash me-1"></i><strong>Regular not recorded</strong></div>
       <div class="text-muted small">
         No active regular fare record for
         {{ journey.unknown_fare_routes|join:", " }}.
-        Recorded transfer extras:
-        {% if journey.transfer_fare %}&#8369;{{ journey.transfer_fare }}{% else %}none{% endif %}
       </div>
       {% endif %}
     </div>
     <div class="sg-panel-summary-row">
       {% if journey.student_fare is not None %}
-      <div><i class="ti ti-ticket me-1"></i><strong>&#8369;{{ journey.student_fare }}</strong></div>
+      <div><i class="ti ti-ticket me-1"></i><strong>Student/PWD &#8369;{{ journey.student_fare }}</strong></div>
       <div class="text-muted small">
-        Student/PWD &middot; rides {% if journey.discount_ride_fare is not None %}&#8369;{{ journey.discount_ride_fare }}{% else %}not recorded{% endif %}{% if journey.transfer_fare %} + transfer &#8369;{{ journey.transfer_fare }}{% endif %}
+        Student/PWD &middot; rides {% if journey.discount_ride_fare is not None %}&#8369;{{ journey.discount_ride_fare }}{% else %}not recorded{% endif %}
       </div>
       {% else %}
       <div><i class="ti ti-ticket me-1"></i><strong>Student/PWD not recorded</strong></div>
       <div class="text-muted small">
         No active discounted fare record for
         {{ journey.unknown_discount_routes|join:", " }}.
-        Recorded transfer extras:
-        {% if journey.transfer_fare %}&#8369;{{ journey.transfer_fare }}{% else %}none{% endif %}
       </div>
       {% endif %}
     </div>
@@ -91,14 +89,14 @@ drawn map path.
         <span class="text-muted small">estimated travel time</span>
       </div>
       <div class="text-muted small">
-        {{ journey.ride_time }} min riding{% if journey.transfer_time %} + {{ journey.transfer_time }} min transfer{% endif %}
+        one direct ride, no transfer
       </div>
     </div>
     {% if journey.total_distance_km %}
     <div class="sg-panel-summary-row">
       <div>
         <i class="ti ti-road me-1"></i><strong>{{ journey.total_distance_km }} km</strong>
-        <span class="text-muted small">recorded stop-to-stop distance</span>
+        <span class="text-muted small">recorded route distance</span>
       </div>
       <div class="text-muted small">
         {% if google_maps.enabled %}
@@ -111,7 +109,7 @@ drawn map path.
     {% endif %}
   </div>
 
-  {# ---- Each ride: type, route code/name, ordered stops, landmarks ---- #}
+  {# ---- The ride: type, route code/name ---- #}
   {% for leg in journey.legs %}
   <div class="border rounded p-2 mb-2 sg-leg">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
@@ -134,51 +132,6 @@ drawn map path.
           Board at <strong>{{ leg.board_at }}</strong> &rarr;
           alight at <strong>{{ leg.alight_at }}</strong>
         </div>
-      </div>
-    </div>
-
-    <div class="mt-2">
-      <div class="text-muted small text-uppercase fw-bold mb-1">Ordered stops</div>
-      <ol class="mb-0 ps-3 sg-stops">
-        {% for stop in leg.stops %}
-        <li class="{% if stop.is_transfer %}fw-bold{% endif %}">
-          {{ stop.name }}
-          <span class="text-muted small">({{ stop.time }} min)</span>
-          {% if stop.is_transfer %}
-            <span class="badge text-bg-yellow ms-1">transfer point</span>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ol>
-    </div>
-
-    {% if leg.landmarks %}
-    <div class="mt-2">
-      <div class="text-muted small text-uppercase fw-bold mb-1">Landmarks on this ride</div>
-      {% for lm in leg.landmarks %}
-      <span class="badge text-bg-light border me-1 mb-1"
-            {% if lm.description %}title="{{ lm.description }}"{% endif %}>
-        <i class="ti ti-flag me-1"></i>{{ lm.name }}
-        <span class="text-muted">({{ lm.distance }} km)</span>
-      </span>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-  {% endfor %}
-
-  {# ---- Transfer instructions ---- #}
-  {% for transfer in journey.transfers %}
-  <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-start gap-2 sg-transfer-alert">
-    <i class="ti ti-arrows-exchange mt-1"></i>
-    <div>
-      <strong>Transfer at {{ transfer.location_name }}</strong>
-      <span class="text-muted small">({{ transfer.from_code }} &rarr; {{ transfer.to_code }})</span>
-      <div class="small">{{ transfer.instructions }}</div>
-      <div class="small text-muted">
-        {% if transfer.fare %}Additional fare: &#8369;{{ transfer.fare }}. {% endif %}
-        {% if transfer.time %}Allow about {{ transfer.time }} minutes to transfer.{% endif %}
-        {% if not transfer.fare and not transfer.time %}No extra fare or waiting time recorded.{% endif %}
       </div>
     </div>
   </div>

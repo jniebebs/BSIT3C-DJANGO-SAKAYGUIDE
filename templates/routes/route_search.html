@@ -8,7 +8,7 @@
         <div class="page-pretitle">Plan your trip</div>
         <h2 class="page-title mb-0">Where do you want to go?</h2>
         <div class="text-muted mt-1">
-          Find routes, fares, and transfer instructions around Kabankalan City.
+          Find routes, fares, and direct rides around Kabankalan City.
         </div>
       </div>
     </div>
@@ -165,13 +165,13 @@
       <div class="card h-100">
         <div class="card-body">
           <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="badge text-bg-blue"><i class="ti ti-list-numbers"></i></span>
-            <strong>Ordered stops</strong>
+            <span class="badge text-bg-blue"><i class="ti ti-arrow-right-circle"></i></span>
+            <strong>Direct rides only</strong>
           </div>
           <p class="text-muted mb-0 small">
-            Results follow the actual <code>route_stops</code> order in both
-            directions, so a route appears whenever it really passes your
-            origin and destination &mdash; including the return trip.
+            Only routes that pass both your starting point and destination
+            in a single ride are offered &mdash; one vehicle, no transfer,
+            ridden in either direction of the recorded route.
           </p>
         </div>
       </div>
@@ -180,13 +180,14 @@
       <div class="card h-100">
         <div class="card-body">
           <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="badge text-bg-yellow"><i class="ti ti-arrows-exchange"></i></span>
-            <strong>Valid transfers only</strong>
+            <span class="badge text-bg-yellow"><i class="ti ti-map-2"></i></span>
+            <strong>One clean map path</strong>
           </div>
           <p class="text-muted mb-0 small">
-            Multi-ride journeys are built from recorded transfer points on
-            shared stops, including extra transfer fare and waiting time when
-            a <code>route_transfers</code> row exists for that route pair.
+            The journey map draws your starting point (green), your
+            destination (red) and one continuous <strong>blue</strong>
+            ride path &mdash; no intermediate stops, no transfer pins, no
+            clutter.
           </p>
         </div>
       </div>

@@ -8,19 +8,20 @@
                      the commuter selects another journey card)
 
    Everything shown on the map comes from the SakayGuide MySQL database:
-   the 50 recorded locations are embedded by Django as JSON, and the journey
-   payload contains every recorded stop, transfer point and landmark. No
-   marker or route is hard-coded here.
+   the 50 recorded locations are embedded by Django as JSON, and the
+   journey payload carries exactly two pins - the starting point (green)
+   and the destination (red). No intermediate stop, transfer or landmark
+   markers are drawn. No marker or route is hard-coded here.
 
    Road geometry / turn-by-turn instructions:
-     1. Google Maps DirectionsService (primary), using the recorded stops of
-        each ride as origin, waypoints and destination. Alternative routes
-        returned by Google are drawn as dashed grey lines and listed in the
-        directions panel.
+     1. Google Maps DirectionsService (primary), connecting the starting
+        point straight to the destination as one continuous path (no
+        intermediate waypoints). Alternative routes returned by Google
+        are drawn as dashed grey lines and listed in the directions panel.
      2. If Directions is unavailable (API not enabled, quota, ZERO_RESULTS,
         offline), the free OSRM demo server is used for the road geometry.
-     3. If both fail, no line is drawn for that ride - never a straight line
-        between stops.
+     3. If both fail, no line is drawn for that ride - never a straight
+        line masquerading as a road.
 
    Live GPS:
      The browser Geolocation API is watched while the "My Current Location"
@@ -470,72 +471,9 @@
   }
 
   function drawJourneyMarkers(cfg) {
-    var stopEntries = {};
-    var order = [];
-
-    cfg.legs.forEach(function (leg) {
-      var lastIndex = leg.stops.length - 1;
-      leg.stops.forEach(function (stop, index) {
-        if (!hasCoord(stop)) {
-          return;
-        }
-        var key = stop.location_id
-          ? 'id:' + stop.location_id
-          : 'c:' + Number(stop.lat).toFixed(5) + ',' +
-            Number(stop.lng).toFixed(5);
-        var entry = stopEntries[key];
-        if (!entry) {
-          entry = { stop: stop, boards: [], alights: [] };
-          stopEntries[key] = entry;
-          order.push(key);
-        }
-        var label = 'ride ' + (leg.leg_index + 1) + ' (' +
-          leg.route_code + ')';
-        if (index === 0) {
-          entry.boards.push(label);
-        }
-        if (index === lastIndex) {
-          entry.alights.push(label);
-        }
-      });
-    });
-
-    order.forEach(function (key) {
-      var entry = stopEntries[key];
-      if (entry.stop.role !== 'intermediate') {
-        return;
-      }
-      addJourneyMarker(
-        toLatLng(entry.stop),
-        dotIcon('#1a7fd4'),
-        stopInfoHtml(entry),
-        20
-      );
-    });
-
-    (cfg.transfer_points || []).forEach(function (transfer) {
-      if (!hasCoord(transfer)) {
-        return;
-      }
-      addJourneyMarker(
-        toLatLng(transfer),
-        pinIcon('#f0932b'),
-        transferInfoHtml(transfer),
-        40
-      );
-    });
-
-    (cfg.landmarks || []).forEach(function (landmark) {
-      if (!hasCoord(landmark)) {
-        return;
-      }
-      addJourneyMarker(
-        toLatLng(landmark),
-        dotIcon('#8b5cf6'),
-        landmarkInfoHtml(landmark),
-        18
-      );
-    });
+    /* Only two pins are drawn on the journey map: the starting point
+       (green) and the destination (red). No intermediate stop, transfer
+       point or landmark markers. */
 
     if (cfg.origin && cfg.origin.verified) {
       addJourneyMarker(
@@ -623,6 +561,19 @@
     return path;
   }
 
+  /* The journey map draws one continuous path from the starting point to
+     the destination: two waypoints only, never via intermediate stops. */
+  function endpointPath(cfg) {
+    var points = [];
+    if (hasCoord(cfg.origin)) {
+      points.push(toLatLng(cfg.origin));
+    }
+    if (hasCoord(cfg.destination)) {
+      points.push(toLatLng(cfg.destination));
+    }
+    return points;
+  }
+
   /* No straight-line preview exists anywhere in this engine. */
 
   function clearJourneyLayers() {
@@ -649,7 +600,7 @@
       if (cfg.journey_available) {
         var bits = [
           cfg.label,
-          cfg.rides + ' ride' + (cfg.rides === 1 ? '' : 's')
+          'direct ride'
         ];
         if (cfg.total_time !== null && cfg.total_time !== undefined) {
           bits.push('est. ' + cfg.total_time + ' min');
@@ -659,7 +610,7 @@
         }
         label.textContent = bits.join(' \u00b7 ');
       } else {
-        label.textContent = cfg.label + ' \u00b7 no journey found';
+        label.textContent = cfg.label + ' \u00b7 no direct route found';
       }
     }
 
@@ -672,7 +623,7 @@
       if (directionsState.pending) {
         html += noteLine(
           'ti-loader-2',
-          'Road paths are loading. The pins are the exact recorded stops; ' +
+          'Road paths are loading. The pins are your starting point and ' +
           'each ride path appears as a <strong>blue</strong> road line as ' +
           'soon as it is ready.'
         );
@@ -700,7 +651,7 @@
           'ti-alert-circle',
           'No road path could be drawn for ' + directionsState.approximateLegs + ' ride' +
           (directionsState.approximateLegs === 1 ? '' : 's') +
-          ' - no line is shown rather than a straight line between stops.'
+          ' - no line is shown rather than a straight line between the endpoints.'
         );
       }
     } else {
@@ -747,21 +698,21 @@
   function directionsStatusMessage(status) {
     switch (status) {
       case 'ZERO_RESULTS':
-        return 'Google found no driving route between these recorded stops.';
+        return 'Google found no driving route between your starting point and destination.';
       case 'OVER_QUERY_LIMIT':
         return 'The Google Maps quota for this key is exhausted right now.';
       case 'REQUEST_DENIED':
         return 'Google Directions rejected the request. Check that the ' +
           'Directions API is enabled and allowed for this browser key.';
       case 'INVALID_REQUEST':
-        return 'Google Directions could not understand the recorded stops ' +
+        return 'Google Directions could not understand the selected points ' +
           'for this ride.';
       case 'NOT_FOUND':
-        return 'One of the recorded stops was not found by Google Directions.';
+        return 'One of the two points was not found by Google Directions.';
       case 'TIMEOUT':
         return 'Google Directions took too long to answer.';
       case 'NO_COORDS':
-        return 'Not enough recorded stops have verified coordinates for ' +
+        return 'Not enough verified coordinates for a route ' +
           'road directions.';
       default:
         return 'Google Directions is unavailable (' + status + ').';
@@ -843,7 +794,7 @@
     var html =
       '<div class="sg-gdir-head"><span><i class="ti ti-signpost me-1"></i>' +
       'Google Maps directions</span><span class="sg-gdir-note">' +
-      'Road guidance follows the recorded stops. Fares and ride times ' +
+      'Road guidance connects your starting point to your destination. Fares and ride times ' +
       'remain SakayGuide database estimates.</span></div>';
 
     var allFailed = true;
@@ -899,7 +850,7 @@
         html += '</div>'; /* leg head */
         html += '<div class="sg-gdir-error">' +
           escapeHtml(result.reason) +
-          ' No line is drawn for this ride; a straight line between stops is ' +
+          ' No line is drawn for this ride; a straight line between the endpoints is ' +
           'never shown as a road route.</div>';
       }
       html += '</div>'; /* .sg-gdir-leg */
@@ -1022,7 +973,9 @@
       renderMapNotes(cfg);
       return;
     }
-    osrmPath(leg.stops).then(function (path) {
+    osrmPath(endpointPath(cfg).map(function (point) {
+      return { lat: point.lat(), lng: point.lng() };
+    })).then(function (path) {
       if (sequence !== journeySequence) {
         return;
       }
@@ -1048,7 +1001,7 @@
     if (sequence !== journeySequence) {
       return;
     }
-    var path = stopPath(leg.stops);
+    var path = endpointPath(cfg);
     if (path.length < 2) {
       directionsState.approximateLegs += 1;
       callback({
@@ -1058,12 +1011,9 @@
       return;
     }
 
-    /* Google Directions accepts at most 25 waypoints in total; keep one
-       slot each for the recorded origin and destination. */
-    var waypoints = path.slice(1, path.length - 1).slice(0, 23)
-      .map(function (point) {
-        return { location: point, stopover: true };
-      });
+    /* One continuous path from the starting point to the destination;
+       no intermediate waypoints at all. */
+    var waypoints = [];
 
     var request = {
       origin: path[0],
@@ -1741,18 +1691,16 @@
     }
 
     createMap(container);
-    addBaseLocationMarkers(true);
     addResetControl(function () {
       if (journeyData[activeJourneyIndex]) {
         focusJourney(journeyData[activeJourneyIndex]);
       } else {
-        fitAllLocations();
+        focusJourney(journeyData[activeJourneyIndex] || null);
       }
     });
 
     gpsController = createGps(map);
     bindJourneySelection();
-    bindLocationList();
 
     setEngineNote(
       'Map engine: Google Maps JavaScript API. Turn-by-turn directions ' +
@@ -1842,7 +1790,7 @@
     setSearchAttribution('leaflet');
     setEngineNote(
       fallbackReasonText(reason) +
-      'Using the built-in Leaflet/OpenStreetMap map instead. Fares, stops, ' +
+      'Using the built-in Leaflet/OpenStreetMap map instead. Fares and ride times ' +
       'directions and all other SakayGuide features are unchanged.',
       true
     );

@@ -8,7 +8,7 @@
         <div class="page-pretitle">Plan your trip</div>
         <h2 class="page-title mb-0">Where do you want to go?</h2>
         <div class="text-muted mt-1">
-          Find routes, fares, and transfer instructions around Kabankalan City.
+          Find routes, fares, and direct rides around Kabankalan City.
         </div>
       </div>
     </div>
@@ -92,14 +92,14 @@
         <div class="d-flex">
           <div>
             <i class="ti ti-route-off me-1"></i>
-            <strong>No available route found</strong> for your selected
+            <strong>No direct ride found</strong> for your selected
             locations ({{ origin.location_name }} &rarr;
             {{ destination.location_name }}).
             <div class="mt-1">
-              Only journeys supported by active route, stop and transfer
-              records are shown - nothing is invented. Try a different pair of
-              locations, or check whether your destination is served by any
-              recorded route.
+              Only recorded routes that pass both points in a single ride
+              are offered - one continuous vehicle, no transfer. Try a
+              different pair of locations, or ask the administrator to add
+              a route that serves this pair.
             </div>
           </div>
         </div>
@@ -113,7 +113,7 @@
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 w-100">
             <div>
               <h3 class="card-title mb-0">
-                <i class="ti ti-map-2 me-1"></i>{% if journeys %}Journey map{% else %}Kabankalan City map{% endif %}
+                <i class="ti ti-map-2 me-1"></i>Journey map
               </h3>
               <div class="card-subtitle text-muted" id="sg-map-route-label">
             {% if journeys %}Estimated travel time: ~{{ journeys.0.total_time }} min{% endif %}
@@ -131,15 +131,8 @@
           <div class="sg-legend d-flex flex-wrap gap-3 mt-2 w-100">
             <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#2e8540"></span>Starting point</span>
             <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#d63939"></span>Destination</span>
-            <span class="sg-legend-item"><span class="sg-legend-dot" style="background:#7c3aed"></span>Barangay</span>
-            <span class="sg-legend-item"><span class="sg-legend-dot" style="background:#64748b"></span>Other place</span>
             {% if journeys %}
-            <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#1a7fd4"></span>Intermediate stop</span>
-            <span class="sg-legend-item"><span class="sg-legend-pin" style="background:#f0932b"></span>Transfer point</span>
-            <span class="sg-legend-item"><span class="sg-legend-dot" style="background:#8b5cf6"></span>Landmark</span>
-            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#1c7ed6"></span>Ride path (Ride 1)</span>
-            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#0b5ed7"></span>Ride path (Ride 2)</span>
-            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#4dabf7"></span>Ride path (Ride 3)</span>
+            <span class="sg-legend-item"><span class="sg-legend-line" style="background:#1c7ed6"></span>Ride path</span>
             {% if google_maps.enabled %}
             <span class="sg-legend-item"><span class="sg-legend-line sg-legend-dashed"></span>Alternative road route (dashed)</span>
             {% endif %}
@@ -196,24 +189,18 @@
             {% else %}
             <div class="col-12 col-lg-4">
               <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                <div class="fw-bold"><i class="ti ti-map-pin me-1"></i>All active Kabankalan City locations</div>
-                <span class="badge text-bg-secondary">{{ map_locations|length }}</span>
+                <div class="fw-bold"><i class="ti ti-map-pin me-1"></i>Why no route?</div>
               </div>
-              <div class="sg-location-list">
-                {% for location in map_locations %}
-                <button type="button" class="sg-location-item"
-                        data-map-location-id="{{ location.location_id }}">
-                  <span class="sg-location-name">{{ location.location_name }}</span>
-                  <span class="sg-location-meta">
-                    {{ location.location_type|capfirst }}
-                    &middot; {{ location.barangay__barangay_name }}
-                  </span>
-                </button>
-                {% endfor %}
+              <div class="text-muted small">
+                Find My Route only offers <strong>direct rides</strong> -
+                one continuous ride in one vehicle, no transfers. The two
+                pins on the map mark your starting point and destination;
+                no route lines are drawn because no recorded route serves
+                this pair in a single ride.
               </div>
               <div class="text-muted small mt-2">
-                <i class="ti ti-hand-click me-1"></i>Click a location to zoom
-                the map to its pin.
+                <i class="ti ti-info-circle me-1"></i>Only the starting point
+                and destination are pinned on the map.
               </div>
             </div>
             {% endif %}

@@ -18,12 +18,8 @@ results and opens its Route Information Panel.
         {% endif %}
         <span class="badge text-bg-blue">{{ leg.route.route_code }}</span>
       {% endfor %}
-      <span class="badge text-bg-{% if journey.transfer_count %}yellow{% else %}green{% endif %}">
-        {% if journey.transfer_count %}
-          {{ journey.transfer_count }} transfer{{ journey.transfer_count|pluralize }}
-        {% else %}
-          Direct route
-        {% endif %}
+      <span class="badge text-bg-green">
+        <i class="ti ti-road me-1"></i>Direct route
       </span>
       {% for mode in journey.transport_names %}
       <span class="badge text-bg-secondary">
@@ -68,12 +64,9 @@ results and opens its Route Information Panel.
             <span>not recorded</span>
           {% endif %}
         </div>
-        {% if journey.transfer_count %}
+        {% if journey.total_distance_km %}
         <div class="text-muted small mt-1">
-          <i class="ti ti-arrows-exchange me-1"></i>Transfer:
-          {% for tp in journey.transfers %}
-            at <strong>{{ tp.location_name }}</strong> switch to {{ tp.to_code }}{% if not forloop.last %}, then{% endif %}
-          {% endfor %}
+          About {{ journey.total_distance_km }} km along this route
         </div>
         {% endif %}
       </div>
